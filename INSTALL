@@ -5,7 +5,23 @@ how to install mawk on Unix like OS
 STEP 0:  Read the file UCONFIG.  If your system is there or
 something close enough you only need run
 
-       build_mawk  [CC=your_cc]   your_system
+       build_mawk  your_system  [CC=your_compiler]
+
+	
+(Build_mawk is a shell script with a first line of #!/bin/sh ; on 
+some systems, csh users may need to
+
+	/bin/sh build_mawk your_system [CC=your_compiler]
+)
+
+
+Build_mawk will produce from Makefile.in a Makefile for your_system
+and then execute make which will make the mawk executable.
+
+	make install
+
+is a separate step with user settable macros for the target
+directories inside the Makefile.
 
 
 else
@@ -26,8 +42,8 @@ generic.h.  The other .h's in config should serve as sufficient
 examples.  Also look at template.h 
 
 STEP2:
-In the mawk directory, examine the Makefile and set the user settable 
-macros as appropriate.  In most cases this will mean using the default.
+In the mawk directory, run build_mawk MF.  This will give you a
+generic Makefile which you can adjust the user macros.
 
 STEP3:
 Run make.  If mawk successfully compiles, two tests will be run on mawk.
@@ -36,7 +52,9 @@ running correctly under normal conditions and the second, test/fpe_test,
 will produce floating point exceptions to see if mawk handles things 
 like division by zero correctly.  
 
-Failing the first test probably means your source files are corrupted.  
+Failing the first test means your source files are corrupted,
+or mawk has a bug uncovered by the new environment.
+
 Failing the second means adjustments need to be made to floating point 
 definitions in your config.h.  
 

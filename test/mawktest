@@ -6,28 +6,23 @@
 # particular use most features.
 #
 # It needs to be run from  mawk/test
-# and mawk needs to be in PATH 
-#
+# and mawk needs to be in mawk/test or in PATH
 
-dat=mawk_test.dat
+dat=mawktest.dat
 
 trap 'echo mawk_test failed ; rm -f temp$$ ; exit 1'  0
 
 PATH=.:$PATH
 
 # find out which mawk we're testing
-mawk -V
+mawk -W version
 
 
 #################################
+echo
 echo testing input and field splitting
-mawk -f wc.awk $dat > temp$$
 
-( cat | cmp -s  - temp$$ ) <<@@
-107 479
-@@
-
-[ $? = 0 ] || exit
+mawk -f wc.awk $dat | cmp -s - wc-awk.out || exit
 
 echo input and field splitting OK
 #####################################
@@ -38,65 +33,24 @@ mawk -f reg0.awk $dat > temp$$
 mawk -f reg1.awk $dat >> temp$$
 mawk -f reg2.awk $dat >> temp$$
 
-( cat | cmp -s  - temp$$ ) <<@@
-3
-4
-1
-@@
+cmp -s  reg-awk.out temp$$ || exit
 
-[ $? = 0 ] || exit
 echo regular expression matching OK
 #######################################
 
 echo
 echo testing arrays and flow of control
-mawk -f wfrq0.awk $dat > temp$$
 
-( cat | cmp -s  - temp$$ ) <<@@
- 29 p
- 21 A
- 14 ANODE
- 13 q
- 12 d
- 12 sval
- 10 if
- 10 the
-  8 dlink
-  8 h
-  8 is
-  7 to
-  6 D
-  6 of
-  5 cflag
-  5 deleted
-  5 else
-  5 front
-  5 hash
-  5 link
-@@
+mawk -f wfrq0.awk $dat | cmp -s - wfrq-awk.out || exit
 
-[ $? = 0 ] || exit
 echo array test OK
 #################################
 
 echo
 echo testing function calls and general stress test
-mawk -f ../examples/decl.awk $dat > temp$$
 
-( cat | cmp -s - temp$$ ) <<'@@'
-hash: function returning unsigned (extern)
-last_dhash: unsigned (static)
-A: ARRAY
-sval: pointer to STRING
-cflag: int
-A: ARRAY
-d: double
-cflag: int
-ap: pointer to ANODE
-signal: function returning pointer to function returning void
-@@
+mawk -f ../examples/decl.awk $dat | cmp -s - decl-awk.out || exit 
 
-[ $? = 0 ] || exit
 echo general stress test passed
 
 

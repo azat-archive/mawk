@@ -12,35 +12,8 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log:	error.c,v $
- * Revision 3.3.1.1  91/09/14  17:23:00  brennan
- * VERSION 1.0
- * 
- * Revision 3.3  91/08/13  06:51:05  brennan
- * VERSION .9994
- * 
- * Revision 3.2  91/06/28  04:16:26  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:27:12  brennan
- * VERSION 0.995
- * 
- * Revision 2.6  91/05/28  15:17:41  brennan
- * removed STRING_BUFF back to temp_buff.string_buff
- * 
- * Revision 2.5  91/05/28  09:04:38  brennan
- * removed main_buff
- * 
- * Revision 2.4  91/05/16  12:19:36  brennan
- * cleanup of machine dependencies
- * 
- * Revision 2.3  91/04/29  07:16:54  brennan
- * changes to grammar to make $x++ and $A[3]++ work right
- * 
- * Revision 2.2  91/04/09  12:38:52  brennan
- * added static to funct decls to satisfy STARDENT compiler
- * 
- * Revision 2.1  91/04/08  08:22:52  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:55:48  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -54,10 +27,12 @@ the GNU General Public License, version 2, 1991.
 #endif
 
 /* statics */
-static void  PROTO( check_FILENAME, (void) ) ;
+static void  PROTO( rt_where, (void) ) ;
 static void  PROTO( unexpected_char, (void) ) ;
 static void  PROTO( missing, (int, char *, int) ) ;
 static char *PROTO( type_to_str, (int) ) ;
+
+extern int NR_flag ; /* on if tracking NR */
 
 
 static struct token_str  {
@@ -77,8 +52,6 @@ QMARK , "?",
 COLON , ":",
 OR, "||",
 AND, "&&",
-P_OR, "||",
-P_AND, "&&",
 ASSIGN , "=" ,
 ADD_ASG, "+=",
 SUB_ASG, "-=",
@@ -92,8 +65,7 @@ LT, "<" ,
 LTE, "<=" ,
 GT, ">",
 GTE, ">=" ,
-MATCH, "~",
-NOT_MATCH, "!~",
+MATCH, string_buff,
 PLUS , "+" ,
 MINUS, "-" ,
 MUL , "*" ,
@@ -102,12 +74,13 @@ MOD, "%" ,
 POW, "^" ,
 NOT, "!" ,
 COMMA, "," ,
-INC_or_DEC, temp_buff.string_buff,
-CONSTANT , temp_buff.string_buff ,
-ID , temp_buff.string_buff ,
-FUNCT_ID , temp_buff.string_buff ,
-BUILTIN , temp_buff.string_buff ,
-IO_OUT, temp_buff.string_buff, 
+INC_or_DEC , string_buff ,
+DOUBLE  , string_buff ,
+STRING_  , string_buff ,
+ID  , string_buff ,
+FUNCT_ID  , string_buff ,
+BUILTIN  , string_buff ,
+IO_OUT , string_buff ,
 IO_IN, "<" ,
 PIPE, "|" ,
 DOLLAR, "$" ,
@@ -126,8 +99,15 @@ static void missing( c, n , ln)
   int c ;
   char *n ;
   int ln ;
-{ errmsg(0, "line %u: missing %c near %s" , ln, c, n) ; }
-  
+{ char *s0, *s1 ;
+
+  if ( pfile_name )
+  { s0 = pfile_name ; s1 = ": " ; }
+  else s0 = s1 = "" ;
+
+  errmsg(0, "%s%sline %u: missing %c near %s" ,s0, s1, ln, c, n) ; 
+}  
+
 void  yyerror(s)
   char *s ; /* we won't use s as input 
   (yacc and bison force this).
@@ -176,13 +156,13 @@ void  yyerror(s)
     case BAD_DECIMAL :
             compile_error(
               "syntax error in decimal constant %s",
-              temp_buff.string_buff ) ;
+              string_buff ) ;
             break ;
 
     case RE :
             compile_error(
             "syntax error at or near /%s/", 
-            temp_buff.string_buff ) ;
+            string_buff ) ;
             break ;
 
     default :
@@ -196,8 +176,8 @@ done :
 }
 
 /* system provided errnos and messages */
-#ifndef MSDOS_MSC	/* don't need the declarations */
-#ifndef THINK_C		/* don't WANT the declarations */
+#ifndef MSDOS_MSC       /* don't need the declarations */
+#ifndef THINK_C         /* don't WANT the declarations */
 extern int sys_nerr ;
 extern char *sys_errlist[] ;
 #endif
@@ -228,8 +208,16 @@ void  errmsg(int errnum, char *format, ...)
 
 void  compile_error(char *format, ...)
 { va_list args ;
+  char *s0, *s1 ;
 
-  fprintf(stderr, "%s: line %u: " , progname, token_lineno) ;
+  /* with multiple program files put program name in
+     error message */
+  if ( pfile_name )
+  { s0 = pfile_name ; s1 = ": " ; }
+  else
+  { s0 = s1 = "" ; }
+
+  fprintf(stderr, "%s: %s%sline %u: " , progname, s0, s1,token_lineno) ;
   va_start(args, format) ;
   vfprintf(stderr, format, args) ;
   va_end(args) ;
@@ -244,10 +232,8 @@ void  rt_error( char *format, ...)
   va_start(args, format) ;
   vfprintf(stderr, format, args) ;
   va_end(args) ;
-  check_FILENAME() ;
-  fprintf(stderr, "\n\t(FILENAME=\"%s\" FNR=%g NR=%g)\n" ,
-     string(bi_vars+FILENAME)->str, bi_vars[FNR].dval,
-     bi_vars[NR].dval) ;
+  putc('\n',stderr) ;
+  rt_where() ;
   mawk_exit(1) ;
 }
 
@@ -282,8 +268,13 @@ void compile_error( va_alist )
   va_dcl
 { va_list args ;
   char *format ;
+  char *s0, *s1 ;
 
-  fprintf(stderr, "%s: line %u: " , progname, token_lineno) ;
+  if ( pfile_name ) /* print program filename too */
+  { s0 = pfile_name ; s1 = ": " ; }
+  else s0 = s1 = "" ;
+
+  fprintf(stderr, "%s: %s%sline %u: " , progname, s0, s1,token_lineno) ;
   va_start(args) ;
   format = va_arg(args, char *) ;
   vfprintf(stderr, format, args) ;
@@ -302,10 +293,8 @@ void  rt_error( va_alist )
   format = va_arg(args, char *) ;
   vfprintf(stderr, format, args) ;
   va_end(args) ;
-  check_FILENAME() ;
-  fprintf(stderr, "\n\tFILENAME=\"%s\" FNR=%g NR=%g\n" ,
-     string(bi_vars+FILENAME)->str, bi_vars[FNR].dval,
-     bi_vars[NR].dval) ;
+  putc('\n',stderr) ;
+  rt_where() ;
   mawk_exit(1) ;
 }
 
@@ -320,27 +309,28 @@ void overflow(s, size)
 { errmsg(0 , "program limit exceeded: %s size=%u", s, size) ;
   mawk_exit(1) ; }
 
-static void check_FILENAME()
+
+/* print as much as we know about where a rt error occured */
+
+static void rt_where()
 {
-  if ( bi_vars[FILENAME].type != C_STRING )
-          cast1_to_s(bi_vars + FILENAME) ;
-  if ( bi_vars[FNR].type != C_DOUBLE )
-          cast1_to_d(bi_vars + FNR ) ;
-  if ( bi_vars[NR].type != C_DOUBLE )
-          cast1_to_d(bi_vars + NR ) ;
+  if ( FILENAME->type != C_STRING ) cast1_to_s(FILENAME) ;
+  if ( TEST2(NR) != TWO_DOUBLES ) cast2_to_d(NR) ;
+
+  fprintf(stderr, "\tFILENAME=\"%s\"", string(FILENAME)->str) ;
+  if ( NR_flag ) 
+      fprintf(stderr, " FNR=%g NR=%g" , FNR->dval, NR->dval) ;
+
+  fprintf(stderr, "\n") ;
 }
 
 /* run time */
 void rt_overflow(s, size)
   char *s ; unsigned size ;
-{ check_FILENAME() ;
-  errmsg(0 , 
-  "program limit exceeded: %s size=%u\n\
-\t(FILENAME=\"%s\" FNR=%g NR=%g)", 
-   s, size, string(bi_vars+FILENAME)->str, 
-   bi_vars[FNR].dval,
-   bi_vars[NR].dval) ;
-   mawk_exit(1) ;
+{ 
+  errmsg(0 , "program limit exceeded: %s size=%u", s, size) ;
+  rt_where() ;
+  mawk_exit(1) ;
 }
 
 static void unexpected_char()

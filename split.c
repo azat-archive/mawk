@@ -11,39 +11,14 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	split.c,v $
- * Revision 3.5.1.1  91/09/14  17:24:21  brennan
- * VERSION 1.0
- * 
- * Revision 3.5  91/08/13  06:52:12  brennan
- * VERSION .9994
- * 
- * Revision 3.4  91/07/17  15:11:37  brennan
- * pass length of s to space_split
- * 
- * Revision 3.3  91/06/28  04:17:40  brennan
- * VERSION 0.999
- * 
- * Revision 3.2  91/06/10  15:59:39  brennan
- * changes for V7
- * 
- * Revision 3.1  91/06/07  10:28:23  brennan
- * VERSION 0.995
- * 
- * Revision 2.4  91/06/04  06:48:08  brennan
- * removed <string.h>
- * 
- * Revision 2.3  91/05/28  09:05:18  brennan
- * removed main_buff
- * 
- * Revision 2.2  91/05/15  12:07:41  brennan
- * dval hash table for arrays
- * 
- * Revision 2.1  91/04/08  08:24:11  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:56:31  brennan
+ * 1.1 pre-release
  * 
 */
 
 /* split.c */
+
+#define  TEMPBUFF_GOES_HERE
 
 #include "mawk.h"
 #include "symtype.h"
@@ -54,10 +29,14 @@ the GNU General Public License, version 2, 1991.
 #include "regexp.h"
 #include "field.h"
 
+SPLIT_OV  *split_ov_list ;
+
+static  int  PROTO(re_ov_split, (char *, PTR) ) ;
+static  int  PROTO(space_ov_split, (char *, char *) ) ;
 
 /* split string s of length slen on SPACE without changing s.
    load the pieces into STRINGS and ptrs into
-   temp_buff.ptr_buff[] 
+   split_buff[]
    return the number of pieces */
 
 int space_split( s , slen)  
@@ -68,21 +47,75 @@ int space_split( s , slen)
   int len ;
   char *q ;
   STRING  *sval ;
+  int lcnt = MAX_SPLIT/3 ;
 
-  while ( 1 )
-  { while ( scan_code[*(unsigned char*)s] == SC_SPACE )  s++ ;
-    if ( *s == 0 )  break ;
+#define EAT_SPACE()   while ( scan_code[*(unsigned char*)s] ==\
+                              SC_SPACE )  s++ 
+#define EAT_NON_SPACE()   \
+    *back = ' ' ; /* sentinel */\
+    while ( scan_code[*(unsigned char*)s] != SC_SPACE )  s++ ;\
+    *back = 0 
+
+
+  while ( lcnt-- )
+  { 
+    EAT_SPACE() ;
+    if ( *s == 0 )  goto done ;
     /* mark the front with q */
     q = s++ ;
-    *back = ' ' ; /* sentinal */
-    while ( scan_code[*(unsigned char*)s] != SC_SPACE )  s++ ;
-    *back = 0 ;
-    sval = (STRING *) (temp_buff.ptr_buff[i++] = 
-         (PTR) new_STRING((char *) 0, len = s - q )) ;
+    EAT_NON_SPACE() ;
+    sval = split_buff[i++] = new_STRING((char *) 0, len = s - q ) ;
     (void) memcpy(sval->str, q, SIZE_T(len)) ;
+
+    EAT_SPACE() ;
+    if ( *s == 0 )  goto done ;
+    q = s++ ;
+    EAT_NON_SPACE() ;
+    sval = split_buff[i++] = new_STRING((char *) 0, len = s - q ) ;
+    (void) memcpy(sval->str, q, SIZE_T(len)) ;
+
+    EAT_SPACE() ;
+    if ( *s == 0 )  goto done ;
+    q = s++ ;
+    EAT_NON_SPACE() ;
+    sval = split_buff[i++] = new_STRING((char *) 0, len = s - q ) ;
+    (void) memcpy(sval->str, q, SIZE_T(len)) ;
+
+  }
+  /* we've overflowed */
+  return  i + space_ov_split(s, back) ;
+
+done:
+  return i ;
+}
+
+static  int  space_ov_split(s, back)
+  register char *s ;
+  char *back ;
+
+{
+  SPLIT_OV  dummy ;
+  register SPLIT_OV *tail = &dummy ;
+  char *q ;
+  int cnt = 0 ;
+  unsigned len ;
+
+  while ( 1 )
+  {
+    EAT_SPACE() ;
+    if ( *s == 0 )  break ; /* done */
+    q = s++ ;
+    EAT_NON_SPACE() ;
+
+    tail = tail->link = (SPLIT_OV*) zmalloc(sizeof(SPLIT_OV)) ;
+    tail->sval = new_STRING((char *) 0 , len = s-q) ;
+    (void) memcpy(tail->sval->str, q, SIZE_T(len)) ;
+    cnt++ ;
   }
 
-  return i ;
+  tail->link = (SPLIT_OV*) 0 ;
+  split_ov_list = dummy.link ;
+  return cnt ;
 }
 
 
@@ -106,16 +139,64 @@ int re_split(s, re)
   int i = 0 ;
   unsigned mlen, len ;
   STRING *sval ;
+  int lcnt = MAX_SPLIT / 3 ;
 
-  while ( t = re_pos_match(s, re, &mlen) )
-  { sval = (STRING*)(temp_buff.ptr_buff[i++] = (PTR)
-            new_STRING( (char *)0, len = t-s) ) ;
+  while ( lcnt-- )
+  {
+    if ( !(t = re_pos_match(s, re, &mlen)) )  goto done ;
+    sval = split_buff[i++] = new_STRING( (char *)0, len = t-s) ;
+    (void) memcpy(sval->str, s, SIZE_T(len)) ;
+    s = t + mlen ;
+
+    if ( !(t = re_pos_match(s, re, &mlen)) )  goto done ;
+    sval = split_buff[i++] = new_STRING( (char *)0, len = t-s) ;
+    (void) memcpy(sval->str, s, SIZE_T(len)) ;
+    s = t + mlen ;
+
+    if ( !(t = re_pos_match(s, re, &mlen)) )  goto done ;
+    sval = split_buff[i++] = new_STRING( (char *)0, len = t-s) ;
     (void) memcpy(sval->str, s, SIZE_T(len)) ;
     s = t + mlen ;
   }
-  temp_buff.ptr_buff[i++] = (PTR) new_STRING(s) ;
+  /* we've overflowed */
+  return  i + re_ov_split(s, re) ;
 
+done:
+  split_buff[i++] = new_STRING(s) ;
   return i ;
+}
+
+/*
+  we've overflowed split_buff[] , put
+  the rest on the split_ov_list
+  return number of pieces
+*/
+
+static int  re_ov_split(s, re)
+  char *s ;
+  PTR  re ;
+{
+  SPLIT_OV  dummy ;
+  register SPLIT_OV  *tail = &dummy ;
+  int cnt = 1 ;
+  char *t ;
+  unsigned len, mlen ;
+
+  while ( t = re_pos_match(s, re, &mlen) )
+  {
+    tail = tail->link = (SPLIT_OV *) zmalloc(sizeof(SPLIT_OV)) ;
+    tail->sval = new_STRING( (char *)0, len = t-s) ;
+    (void) memcpy(tail->sval->str, s, SIZE_T(len)) ;
+    s = t + mlen ;
+    cnt++ ;
+  }
+  /* and one more */
+  tail = tail->link = (SPLIT_OV *) zmalloc(sizeof(SPLIT_OV)) ;
+  tail->sval = new_STRING(s) ;
+  tail->link = (SPLIT_OV*) 0 ;
+  split_ov_list = dummy.link ;
+
+  return cnt ;
 }
     
 /*  split(s, X, r)
@@ -129,9 +210,6 @@ CELL *bi_split(sp)
   register CELL *sp ;
 { 
   int cnt ;   /* the number of pieces */
-  CELL c_cnt ; /* CELL version of cnt */
-  ARRAY A ;
-  CELL  *cp ;
 
 
   if ( sp->type < C_RE )  cast_for_split(sp) ;
@@ -160,34 +238,19 @@ CELL *bi_split(sp)
        we'll treat the special case for speed */
     case C_SNULL : /* split on empty string */
         cnt = 1 ;
-        temp_buff.ptr_buff[0] = sp->ptr ;
+        split_buff[0] = (STRING *) sp->ptr ;
         string(sp)->ref_cnt++ ;
         break ;
 
     default : bozo("bad splitting cell in bi_split") ;
   }
 
-  if ( cnt > MAX_SPLIT )
-	rt_overflow("maximum pieces from a split", MAX_SPLIT) ;
-
-  /* now load the array */
 
   free_STRING( string(sp) ) ;
+  sp->type = C_DOUBLE ;
+  sp->dval = (double) cnt ;
 
-  c_cnt.type = sp->type = C_DOUBLE ;
-  c_cnt.dval = sp->dval = (double) cnt ;
-
-  A = (ARRAY) (sp+1)->ptr  ;
-
-  while ( cnt )
-  { 
-    cp = array_find( A, &c_cnt, CREATE) ;
-    cell_destroy(cp) ;
-    cp->ptr = temp_buff.ptr_buff[--cnt] ;
-    cp->type = C_MBSTRN ;
-
-    c_cnt.dval -= 1.0 ;
-  }
+  load_array((ARRAY)(sp+1)->ptr, cnt) ;
 
   return sp ;
 }

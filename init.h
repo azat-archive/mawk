@@ -11,20 +11,8 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	init.h,v $
- * Revision 3.3.1.1  91/09/14  17:23:31  brennan
- * VERSION 1.0
- * 
- * Revision 3.3  91/08/13  06:51:36  brennan
- * VERSION .9994
- * 
- * Revision 3.2  91/06/28  04:16:51  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:27:41  brennan
- * VERSION 0.995
- * 
- * Revision 2.1  91/04/08  08:23:17  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:59:22  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -34,20 +22,34 @@ the GNU General Public License, version 2, 1991.
 #ifndef  INIT_H
 #define  INIT_H
 
+#include "symtype.h"
+
+/* nodes to link file names for multiple
+   -f option */
+
+typedef struct pfile {
+struct pfile *link ;
+char *fname ;
+} PFILE ;
+
+extern PFILE *pfile_list ;
+
+extern char *sprintf_buff, *sprintf_limit ;
+
 
 void  PROTO( initialize, (int, char **) ) ;
 void  PROTO( code_init, (void) ) ;
 void  PROTO( code_cleanup, (void) ) ;
 void  PROTO( compile_cleanup, (void) ) ;
-void PROTO(scan_init, (int, char *) ) ;
+void PROTO(scan_init, ( char *) ) ;
 void PROTO(scan_cleanup, (void) ) ;
 void PROTO(bi_vars_init, (void) ) ;
 void PROTO(bi_funct_init, (void) ) ;
 void PROTO(print_init, (void) ) ;
 void PROTO(kw_init, (void) ) ;
-void PROTO(jmp_stacks_init, (void) ) ;
-void PROTO(jmp_stacks_cleanup, (void) ) ;
 void  PROTO( field_init, (void) ) ;
 void  PROTO( fpe_init, (void) ) ;
+void  PROTO( load_environ, (ARRAY)) ;
+void  PROTO( set_stderr, (void)) ;
 
 #endif   /* INIT_H  */

@@ -9,6 +9,8 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
+/*$Log:
+*/
 
 /*
  * should work on any Sequent running Final DYNIX

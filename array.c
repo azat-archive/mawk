@@ -11,74 +11,42 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	array.c,v $
- * Revision 3.3.1.1  91/09/14  17:22:35  brennan
- * VERSION 1.0
- * 
- * Revision 3.3  91/08/13  06:50:44  brennan
- * VERSION .9994
- * 
- * Revision 3.2  91/06/28  04:16:00  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:26:48  brennan
- * VERSION 0.995
- * 
- * Revision 2.3  91/05/22  07:39:40  brennan
- * static prototypes
- * 
- * Revision 2.2  91/05/15  12:07:27  brennan
- * dval hash table for arrays
- * 
- * Revision 2.1  91/04/08  08:22:15  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:55:32  brennan
+ * 1.1 pre-release
  * 
 */
 
 #include "mawk.h"
 #include "symtype.h"
 #include "memory.h"
+#include "field.h"
 #include "bi_vars.h"
 
 /* convert doubles to string for array indexing */
-#define   A_FMT         "%.6g"
+#define   NO_MOVE       2
+#define   NO_IVAL       (-1)
 
 static ANODE *PROTO(find_by_sval, (ARRAY, STRING *, int) ) ;
-static D_ANODE *PROTO(find_by_dval, (ARRAY, double , int) ) ;
+static ANODE *PROTO(find_by_index, (ARRAY, int,int,int) ) ;
+static ANODE *PROTO(find_by_dval, (ARRAY, double, int)) ;
+static void PROTO(load_array_ov, (ARRAY) ) ;
 
-extern int returning ; 
-   /* flag -- on if returning from function call */
 
 extern unsigned hash() ;
 
 /* An array A is a pointer to an array of struct array,
    which is two hash tables in one.  One for strings
-   and one for doubles.
+   and one for non-negative integers (this is much simplier
+   and works just as well as previous versions)
 
-   each array is of size A_HASH_PRIME.
+   Each array is of size A_HASH_PRIME.
 
    When an index is deleted via  delete A[i], the
    ANODE is not removed from the hash chain.  A[i].cp
    and A[i].sval are both freed and sval is set NULL.
    This method of deletion simplifies for( i in A ) loops.
 
-   On the D_ANODE list, we use real deletion and move to the
-   front on access.
-
-   Separate nodes (as opposed to one type of node on two lists)
-   to
-     (1) d1 != d2, but sprintf(A_FMT,d1) == sprintf(A_FMT,d1)
-         so two dnodes can point at the same anode.
-     (2) Save a little data space(64K PC mentality).
-
-   the cost is an extra level of indirection.
-
-   Some care is needed so that things like
-     A[1] = 2 ; delete A["1"] work .
 */
-
-#define  _dhash(d)    (((int)(d)&0x7fff)%A_HASH_PRIME)
-#define  DHASH(d)     (last_dhash=_dhash(d))
-static  unsigned  last_dhash ;
 
 
 static  ANODE *find_by_sval(A, sval, cflag)
@@ -110,6 +78,7 @@ static  ANODE *find_by_sval(A, sval, cflag)
          p->link = A[h].link ; A[h].link = p ;
        }
 
+       p->ival = NO_IVAL ;
        p->sval = sval ;
        sval->ref_cnt++ ;
        p->cp = (CELL *) zmalloc(sizeof(CELL)) ;
@@ -119,57 +88,74 @@ static  ANODE *find_by_sval(A, sval, cflag)
 }
 
 
-/* on the D_ANODE list, when we find a node we move it
-   to the front of the hash chain */
-
-static D_ANODE  *find_by_dval(A, d, cflag)
+static ANODE  *find_by_index(A, index, ival, flag)
   ARRAY  A ;
-  double d ;
-  int cflag ;
+  int index, ival, flag ;
 {
-  unsigned h = DHASH(d) ;
-  register D_ANODE *p = A[h].dlink ;
-  D_ANODE *q = 0 ; /* trails p for move to front */
-  ANODE *ap ;
+  register ANODE *p = A[index].ilink ;
+  ANODE *q = 0 ; /* trails p */
 
-   while ( p )
-       if ( p->dval == d )
-       { /* found */
-         if ( ! p->ap->sval ) /* but it was deleted by string */
-         { if ( q )  q->dlink = p->dlink ;
-           else A[h].dlink = p->dlink ;
-           zfree(p, sizeof(D_ANODE)) ;
-           break ; 
-         }
-         /* found */
-         if ( !q )  return  p ; /* already at front */
+  while ( p )
+       if ( p->ival == ival )  /* found */
+         if ( !q || flag == NO_MOVE )  return  p ;
          else /* delete to put at front */
-         { q->dlink = p->dlink ; goto found ; }
-       }
+         { q->ilink = p->ilink ; goto found ; }
+        
        else
-       { q = p ; p = p->dlink ; }
+       { q = p ; p = p->ilink ; }
 
-   /* not there, still need to look by sval 
-      CANNOT use temp_buff, may be in use by split */
+   /* not there, still need to look by sval */
    
    { char xbuff[16] ;
      STRING *sval ;
+     char *s = xbuff+14 ;
+     int x = ival ;
 
-     (void) sprintf(xbuff, A_FMT, d) ;
-     sval = new_STRING(xbuff) ;
-     ap = find_by_sval(A, sval, cflag) ;
+     xbuff[15] = 0 ;
+
+     do { *s-- = x%10 + '0' ; x /= 10 ; } while(x) ;
+     sval = new_STRING(s+1) ;
+     p = find_by_sval(A, sval, flag) ;
      free_STRING(sval) ;
-   }    
+   }
 
-   if ( ! ap )  return (D_ANODE *) 0 ;
-   /* create new D_ANODE  */
-   p = (D_ANODE *) zmalloc(sizeof(D_ANODE)) ;
-   p->ap = ap ; p->dval = d ;
+
+   if ( ! p )  return (ANODE *) 0 ;
+
+   p->ival = ival ;
 
 found : /* put p at front */
-   p->dlink = A[h].dlink ; A[h].dlink = p ;
+   p->ilink = A[index].ilink ; A[index].ilink = p ;
    return p ;
 }
+
+
+static ANODE *find_by_dval(A, d, flag)
+  ARRAY A ;
+  double d ;
+{
+  int ival ;
+  ANODE *p ;
+  char xbuff[260] ;
+  STRING *sval ;
+  
+
+  if ( (double)(ival = (int)d) == d ) /* integer valued */
+  {
+    if ( ival >= 0 )  
+            return  find_by_index(A, ival%A_HASH_PRIME, ival, flag) ;
+    
+    (void) sprintf(xbuff, "%d", ival) ;
+  } 
+  else (void) sprintf(xbuff, string(CONVFMT)->str, d) ;
+
+  sval = new_STRING(xbuff) ;
+  p = find_by_sval(A, sval, flag) ;
+  free_STRING(sval) ;
+  return p ;
+}
+
+  
 
 CELL *array_find(A, cp, create_flag)
   ARRAY A ;
@@ -177,13 +163,12 @@ CELL *array_find(A, cp, create_flag)
   int create_flag ;
 {
   ANODE *ap ;
-  D_ANODE *dp ;
 
   switch( cp->type )
   {
     case C_DOUBLE :
-        return  (dp = find_by_dval(A, cp->dval, create_flag))
-                ? dp->ap->cp : (CELL *) 0 ;
+        ap = find_by_dval(A, cp->dval, create_flag) ;
+        break ;
 
     case  C_NOINIT :
         ap = find_by_sval(A, &null_str, create_flag) ;
@@ -202,25 +187,28 @@ void  array_delete(A, cp)
   ARRAY A ; CELL *cp ;
 {
   ANODE *ap ;
-  D_ANODE *dp ;
 
   switch( cp->type )
   {
     case C_DOUBLE :
-        if ( !(dp = find_by_dval(A, cp->dval, 0)) ) return ;
-
-        ap = dp->ap ;
-        /* dp is at front of A[last_dhash], delete the D_ANODE */
-        A[last_dhash].dlink = dp->dlink ;
-        zfree(dp, sizeof(D_ANODE)) ;
+        ap = find_by_dval(A, cp->dval, NO_CREATE) ;
+        if ( ap && ap->ival >= 0 ) /* must be at front */
+                A[ap->ival%A_HASH_PRIME].ilink = ap->ilink ;
         break ;
 
     case  C_NOINIT :
-        ap = find_by_sval(A, &null_str, 0) ;
+        ap = find_by_sval(A, &null_str, NO_CREATE) ;
         break ;
 
     default :
-        ap = find_by_sval(A, string(cp), 0) ;
+        ap = find_by_sval(A, string(cp), NO_CREATE) ;
+        if ( ap && ap->ival >= 0 )
+        {
+          int index = ap->ival % A_HASH_PRIME ;
+
+          ap = find_by_index(A, index, ap->ival, NO_CREATE) ;
+          A[index].ilink = ap->ilink ;
+        }
         break ;
   }
 
@@ -230,47 +218,68 @@ void  array_delete(A, cp)
   }
 }
 
+/* load into an array from the split_ov_list */
+
+static void  load_array_ov(A)
+  ARRAY A ;
+{
+  register SPLIT_OV *p ;
+  register CELL *cp ;
+  SPLIT_OV *q ;
+
+  int cnt = MAX_SPLIT + 1 ;
+  int index = (MAX_SPLIT+1) % A_HASH_PRIME ;
+
+  p = split_ov_list ; split_ov_list = (SPLIT_OV*) 0 ;
+
+#ifdef  DEBUG
+  if ( !p ) bozo("array_ov") ;
+#endif
+
+  while( 1 )
+  {
+    cp = find_by_index(A, index, cnt, NO_MOVE) ->cp ;
+    cell_destroy(cp) ;
+    cp->type = C_MBSTRN ;
+    cp->ptr = (PTR) p->sval ;
+
+    q = p ; p = p->link ; zfree(q, sizeof(SPLIT_OV)) ;
+    if ( !p )  break ;
+
+    cnt++ ;
+    if ( ++index == A_HASH_PRIME )  index = 0 ;
+  }
+}
 
 
-/* for ( i in A ) ,
-   loop over elements of an array 
-
-sp[0].ptr :  a pointer to A ( the hash table of A)
-sp[-1] :  a pointer to i ( a cell ptr)
-
-cdp[0] :  a stop op to catch breaks
-cdp[1] :  offset from cdp of the code after the loop (n+2)
-cdp[2] :  start of body of the loop
-cdp[3..n] : the rest of the body
-cdp[n+1]  : a stop op to delimit the body and catch continues
+/* this is called by bi_split()
+   to load strings into an array
 */
 
-INST  *array_loop( cdp, sp, fp) /* passed code, stack and frame ptrs */
-  INST *cdp ; 
-  CELL *sp, *fp ;
-{ int i ;
-  register ANODE *p ;
-  ARRAY   A = (ARRAY) sp-- -> ptr ;
-  register CELL *cp = (CELL *) sp-- -> ptr ;
+void  load_array( A, cnt)
+  ARRAY  A ;
+  register int cnt ;
+{
+  register CELL *cp ;
+  register int index ;
 
-  for ( i = 0 ; i < A_HASH_PRIME ; i++ )
-  for ( p = A[i].link ; p ; p = p->link )
-  { if ( ! p->sval /* its deleted */ )  continue ;
-  
-    cell_destroy(cp) ;
-    cp->type = C_STRING ;
-    cp->ptr = (PTR) p->sval ;
-    p->sval->ref_cnt++ ;
-
-    /* execute the body of the loop */
-    if ( execute(cdp+2, sp, fp) == cdp /* exec'ed a break statement */
-         || returning  /* function return in body of loop */
-       )  
-           goto break2 /* break both for loops */ ; 
+  if ( cnt > MAX_SPLIT )
+  {
+    load_array_ov(A) ;
+    cnt = MAX_SPLIT ;
   }
 
-break2 :
-  return   cdp + cdp[1].op ;
+  index = cnt % A_HASH_PRIME ;
+
+  while ( cnt )
+  {
+    cp = find_by_index(A, index, cnt, NO_MOVE) ->cp  ;
+    cell_destroy(cp) ;
+    cp->type = C_MBSTRN ;
+    cp->ptr = (PTR) split_buff[--cnt] ;
+
+    if ( --index < 0 )  index = A_HASH_PRIME - 1 ;
+  }
 }
 
 
@@ -281,7 +290,7 @@ CELL *array_cat( sp, cnt)
   register CELL *sp ;
   int cnt ;
 { register CELL *p ;  /* walks the stack */
-  CELL subsep ;  /* a copy of bi_vars[SUBSEP] */
+  CELL subsep ;  /* a copy of SUBSEP */
   unsigned subsep_len ;
   char *subsep_str ;
   unsigned total_len ; /* length of cat'ed expression */
@@ -290,7 +299,7 @@ CELL *array_cat( sp, cnt)
   STRING *sval ;  /* build new STRING here */
 
   /* get a copy of subsep, we may need to cast */
-  (void) cellcpy(&subsep, bi_vars + SUBSEP) ;
+  (void) cellcpy(&subsep, SUBSEP) ;
   if ( subsep.type < C_STRING ) cast1_to_s(&subsep) ;
   subsep_len = string(&subsep)->len ;
   subsep_str = string(&subsep)->str ;
@@ -331,30 +340,62 @@ CELL *array_cat( sp, cnt)
 
 void  array_free(A)
   ARRAY  A ;
-{ register ANODE *ap ;
-  register D_ANODE *dp ;
+{ register ANODE *p ;
   register int i ;
-  ANODE *aq ;
-  D_ANODE *dq ;
+  ANODE *q ;
 
   for( i = 0 ; i < A_HASH_PRIME ; i++ )
-  { ap = A[i].link ;
-    while ( ap )
+  { p = A[i].link ;
+    while ( p )
     { /* check its not a deleted node */
-      if ( ap->sval )
-      { free_STRING(ap->sval) ;
-        cell_destroy(ap->cp) ;
-        free_CELL(ap->cp) ;
+      if ( p->sval )
+      { free_STRING(p->sval) ;
+        cell_destroy(p->cp) ;
+        free_CELL(p->cp) ;
       }
 
-      aq = ap ; ap = ap->link ;
-      zfree( aq, sizeof(ANODE)) ;
+      q = p ; p = p->link ;
+      zfree( q, sizeof(ANODE)) ;
     }
-
-    dp = A[i].dlink ;
-    while ( dp )
-    { dq = dp ; dp = dp->dlink ; zfree(dq,sizeof(D_ANODE)) ; }
   }
 
   zfree(A, sizeof(A[0]) * A_HASH_PRIME ) ;
 }
+
+
+int  inc_aloop_state( ap )
+  ALOOP_STATE *ap ;
+{
+  register ANODE *p ;
+  register int i ;
+  ARRAY  A = ap->A ;
+  CELL *cp ;
+
+  if ( (i = ap->index) == -1 )  p = A[++i].link ;
+  else  p = ap->ptr->link ;
+
+  while ( 1 )
+  {
+    if ( !p )
+	if ( ++i == A_HASH_PRIME )  return 0 ;
+	else
+	{ p = A[i].link ; continue ; }
+
+    if ( p->sval )  /* found one */
+    {
+      cp = ap->var ;
+      cell_destroy(cp) ;
+      cp->type = C_STRING ;
+      cp->ptr = (PTR) p->sval ;
+      p->sval->ref_cnt++ ;
+
+      /* save the state */
+      ap->index = i ;
+      ap->ptr = p ;
+      return 1 ;
+    }
+    else /* its deleted */
+    p = p->link ;
+  }
+}
+

@@ -11,57 +11,8 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	fin.c,v $
- * Revision 3.5.1.1  91/09/14  17:23:21  brennan
- * VERSION 1.0
- * 
- * Revision 3.5  91/08/13  06:51:29  brennan
- * VERSION .9994
- * 
- * Revision 3.4  91/07/19  07:51:04  brennan
- * escape sequence now recognized in command line assignments
- * 
- * Revision 3.3  91/07/17  10:45:27  brennan
- * changes in command line files -- dictated by posix;
- * Not a big deal, but better this way
- * version 0.9992
- * 
- * Revision 3.2  91/06/28  04:16:43  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/08  06:14:33  brennan
- * VERSION 0.995
- * 
- * Revision 2.10  91/06/08  06:05:55  brennan
- * When changing main_fin, FINgets had a bozo -- it only worked by a fluke
- * related to the design of zmalloc.  Fixed by returning new value of
- * main_fin from next_main().  Also now mark eof on main_fin differently.
- * 
- * Revision 2.9  91/06/06  09:42:05  brennan
- * added HAVE_FCNTL
- * 
- * Revision 2.8  91/06/04  09:10:50  brennan
- * added some ptr casts
- * 
- * Revision 2.7  91/05/30  09:04:44  brennan
- * input buffer can grow dynamically
- * 
- * Revision 2.6  91/05/28  09:04:48  brennan
- * removed main_buff
- * 
- * Revision 2.5  91/05/23  08:05:51  brennan
- * removed fdopen() proto
- * 
- * Revision 2.4  91/05/22  07:44:10  brennan
- * removed unused variable
- * 
- * Revision 2.3  91/05/15  12:07:36  brennan
- * dval hash table for arrays
- * 
- * Revision 2.2  91/05/06  15:01:04  brennan
- * flush output before fork
- * 
- * Revision 2.1  91/04/08  08:23:09  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:56:02  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -87,16 +38,16 @@ extern int errno ;
 int PROTO(isatty, (int) ) ;
 
 static FIN *PROTO( next_main, (int) ) ;
-static int  PROTO( is_cmdline_assign, (char *) ) ;
 static char *PROTO( enlarge_fin_buffer, (FIN *) ) ;
 static void PROTO(set_main_to_stdin, (void) ) ;
+int  PROTO( is_cmdline_assign, (char *) ) ; /* also used by init */
 
 FIN  *FINdopen( fd, main_flag )
   int fd , main_flag ;
 { register FIN *fin = (FIN *) zmalloc( sizeof(FIN) ) ;
 
   fin->fd = fd ;
-  fin->flags = main_flag ? MAIN_FLAG : 0 ;
+  fin->flags = main_flag ? (MAIN_FLAG|START_FLAG) : START_FLAG ;
   fin->buffp = fin->buff = (char *) zmalloc(BUFFSZ+1) ;
   fin->nbuffs = 1 ;
   fin->buff[0] = 0 ;
@@ -119,14 +70,25 @@ FIN  *FINopen( filename, main_flag )
   char *filename ;
   int main_flag ;
 { int fd ;
+  int oflag = O_RDONLY ;
+
+#if  MSDOS && NO_BINMODE==0
+  int bm = binmode() & 1 ;
+  if ( bm ) oflag |= O_BINARY ;
+#endif
 
   if ( filename[0] == '-' && filename[1] == 0 )
+  {
+#if  MSDOS  &&  NO_BINMODE==0
+     if ( bm )  setmode(0, O_BINARY) ;
+#endif
       return  FINdopen(0, main_flag) ;
+  }
 
 #ifdef THINK_C
-  if ( (fd = open( filename , O_RDONLY )) == -1 )
+  if ( (fd = open( filename , oflag )) == -1 )
 #else
-  if ( (fd = open( filename , O_RDONLY, 0 )) == -1 )
+  if ( (fd = open( filename , oflag, 0 )) == -1 )
 #endif
   { errmsg( errno, "cannot open %s" , filename ) ;
     return (FIN *) 0 ; }
@@ -134,15 +96,31 @@ FIN  *FINopen( filename, main_flag )
   return  FINdopen( fd, main_flag ) ;
 }
 
-void  FINclose( fin )
+/* frees the buffer and fd, but leaves FIN structure until
+   the user calls close() */
+
+void FINsemi_close(fin)
   register FIN *fin ;
+{ static char dead  = 0 ;
+
+  if ( fin->buff != &dead ) 
+  {
+    zfree(fin->buff, fin->nbuffs*BUFFSZ + 1) ;
+
+    if ( fin->fd )
+	if ( fin->fp )  (void) fclose(fin->fp) ;
+	else   (void) close(fin->fd) ;
+
+    fin->buff = fin->buffp = &dead  ; /* marks it semi_closed */
+  }
+  /* else was already semi_closed */
+}
+
+/* user called close() on input file */
+void  FINclose( fin )
+  FIN *fin ;
 {
-  zfree(fin->buff, fin->nbuffs*BUFFSZ + 1) ;
-
-  if ( fin->fd )  
-        if ( fin->fp )  (void) fclose(fin->fp) ;
-        else  (void) close(fin->fd) ;
-
+  FINsemi_close(fin) ;
   zfree( fin , sizeof(FIN) ) ;
 }
 
@@ -207,6 +185,17 @@ restart :
       if ( r < fin->nbuffs*BUFFSZ )  fin->flags |= EOF_FLAG ;
 
       p = fin->buffp = fin->buff ;
+
+      if ( fin->flags & START_FLAG )
+      {
+	fin->flags &= ~START_FLAG ;
+	if ( rs_shadow.type == SEP_MLR  )
+	{ /* trim blank lines from front of file */
+	  while ( *p == '\n' ) p++ ;
+	  fin->buffp = p ;
+	  if ( *p == 0 )  goto  restart ;
+	}
+      }
     }
   }
 
@@ -224,6 +213,7 @@ retry:
                 match_len = ((STRING *) rs_shadow.ptr)->len ) ;
             break ;
 
+    case SEP_MLR :
     case SEP_RE :
             q = re_pos_match(p, rs_shadow.ptr, &match_len) ;
             /* if the match is at the end, there might still be
@@ -246,6 +236,10 @@ retry:
   if ( fin->flags & EOF_FLAG )
   { /* last line without a record terminator */
     *len_p = r = strlen(p) ; fin->buffp = p+r ;
+
+    if ( rs_shadow.type == SEP_MLR && fin->buffp[-1] == '\n' 
+	 && r != 0  )
+    { (*len_p)-- ; * -- fin->buffp = 0 ; }
     return p ;
   }
 
@@ -338,9 +332,9 @@ static double argi = 1.0 ;  /* index of next ARGV[argi] to try to open */
 
 static void  set_main_to_stdin()
 {
-    cell_destroy( bi_vars + FILENAME ) ;
-    bi_vars[FILENAME].type = C_STRING ;
-    bi_vars[FILENAME].ptr = (PTR) new_STRING( "-") ;
+    cell_destroy( FILENAME ) ;
+    FILENAME->type = C_STRING ;
+    FILENAME->ptr = (PTR) new_STRING( "-") ;
     main_fin = FINdopen(0, 1) ;
 }
    
@@ -348,7 +342,14 @@ static void  set_main_to_stdin()
 void  open_main()  
 { CELL argc ;
 
-  (void) cellcpy(&argc, bi_vars+ARGC) ;
+#if  MSDOS && NO_BINMODE==0   /* set input modes */
+  int k = binmode() ;
+
+  if ( k & 1 )  setmode(0, O_BINARY) ;
+  if ( k & 2 ) { setmode(1,O_BINARY) ; setmode(2,O_BINARY) ; }
+#endif
+
+  (void) cellcpy(&argc, ARGC) ;
   if ( argc.type != C_DOUBLE ) cast1_to_d(&argc) ;
 
   if ( argc.dval == 1.0 )  set_main_to_stdin() ;
@@ -368,12 +369,12 @@ static  FIN  *next_main(open_flag)
   c_argi.type = C_DOUBLE ;
 
   if ( main_fin )  FINclose(main_fin) ;
-  cell_destroy( bi_vars + FILENAME ) ;
-  cell_destroy( bi_vars + FNR ) ;
-  bi_vars[FNR].type = C_DOUBLE ;
-  bi_vars[FNR].dval = 0.0 ;
+  cell_destroy( FILENAME ) ;
+  cell_destroy( FNR ) ;
+  FNR->type = C_DOUBLE ;
+  FNR->dval = 0.0 ;
 
-  if ( cellcpy(&argc, &bi_vars[ARGC])->type != C_DOUBLE )
+  if ( cellcpy(&argc, ARGC)->type != C_DOUBLE )
           cast1_to_d(&argc) ;
   
   while ( argi < argc.dval )
@@ -398,7 +399,7 @@ static  FIN  *next_main(open_flag)
     if ( ! (main_fin = FINopen( string(cp)->str, 1 )) ) exit(1) ;
 
     /* success */
-    (void) cellcpy( &bi_vars[FILENAME] , cp ) ;
+    (void) cellcpy(FILENAME , cp ) ;
     free_STRING( string(cp) ) ;
     return  main_fin ;
   }
@@ -409,8 +410,8 @@ static  FIN  *next_main(open_flag)
   { set_main_to_stdin() ;  return  main_fin ; }
     
   /* real failure */
-  bi_vars[FILENAME].type = C_STRING ;
-  bi_vars[FILENAME].ptr = (PTR) new_STRING( "" ) ;
+  FILENAME->type = C_STRING ;
+  FILENAME->ptr = (PTR) new_STRING( "" ) ;
 
   { /* this is how we mark EOF on main_fin  */
     static char dead_buff = 0 ;
@@ -423,7 +424,7 @@ static  FIN  *next_main(open_flag)
 }
     
 
-static int is_cmdline_assign(s)
+int is_cmdline_assign(s)
   char *s ;
 { 
   register char *p ;
@@ -431,6 +432,8 @@ static int is_cmdline_assign(s)
   SYMTAB *stp ;
   CELL *cp ;
   unsigned len ;
+  CELL cell ; /* used if command line assign to pseudo field */
+  CELL *fp = (CELL *) 0 ; /* ditto */
 
   if ( scan_code[*(unsigned char *)s] != SC_IDCHAR ) return 0 ;
 
@@ -451,12 +454,19 @@ static int is_cmdline_assign(s)
         break ;
 
     case  ST_VAR :
+    case  ST_NR : /* !! no one will do this */
         cp = stp->stval.cp ;
         break ;
 
+    case  ST_FIELD :
+	/* must be pseudo field */
+	fp = stp->stval.cp ;
+	cp = &cell ;
+	break ;
+
     default :
         rt_error(
-          "cannot command line assign to %s\n\t- type clash or keyword" 
+          "cannot command line assign to %s\n\ttype clash or keyword" 
           , s ) ;
   }
   
@@ -468,5 +478,7 @@ static int is_cmdline_assign(s)
   cp->ptr = (PTR) new_STRING(p) ;
   zfree(p,len) ;
   check_strnum(cp) ;
+  if ( fp ) /* move it from cell to pfield[] */
+  { field_assign(fp, cp) ; free_STRING(string(cp)) ; }
   return 1 ;
 }

@@ -12,23 +12,8 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log:	memory.c,v $
- * Revision 3.3.1.1  91/09/14  17:23:49  brennan
- * VERSION 1.0
- * 
- * Revision 3.3  91/08/13  06:51:49  brennan
- * VERSION .9994
- * 
- * Revision 3.2  91/06/28  04:17:06  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:27:56  brennan
- * VERSION 0.995
- * 
- * Revision 2.2  91/06/03  07:54:08  brennan
- * changed #ifdef __TURBOC__  to #if HAVE_PROTOS
- * 
- * Revision 2.1  91/04/08  08:23:35  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:56:21  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -44,56 +29,36 @@ the GNU General Public License, version 2, 1991.
 
 #include "memory.h"
 
-STRING null_str = {1, 0, "" } ;
+STRING null_str = {0, 1, "" } ;
 
-static STRING *char_string[127] ;
-/* slots for strings of one character
-   "\01" thru "\177"    */
   
 STRING *new_STRING(s, xlen)   
   char *s ;  unsigned xlen ;
   /* WARNING: if s != NULL, don't access xlen
      because it won't be there   */
-{ register STRING *p ;
+{ register STRING *sval ;
   unsigned len ;
 
   if ( s )
-        switch( len = strlen(s) )
-        {
-            case 0 : 
-                p = &null_str  ; p->ref_cnt++ ;
-                break ;
-
-            case 1 :
-                if ( *(unsigned char *)s < 128 )
-                {   if ( p = char_string[*s-1] )
-                        p->ref_cnt++ ;
-                    else
-                    { p = (STRING *) zmalloc(6) ;
-                      p->ref_cnt = 2 ;  p->len = 1 ; 
-                      p->str[0] = s[0] ;
-                      p->str[1] = 0 ;
-                      char_string[*s-1] = p ;
-                    }
-
-                    break ; /*case */
-                }
-                /* else FALL THRU */
-
-            default :
-                p = (STRING *) zmalloc(len+5) ;
-                p->ref_cnt = 1 ; p->len = len ;
-                (void) memcpy( p->str , s, SIZE_T(len+1)) ;
-                break ;
-        }
+  {
+    if ( *s == 0 ){ sval = &null_str ; null_str.ref_cnt++ ; }
+    else
+    {
+      len = strlen(s) ;
+      sval = (STRING *) zmalloc(len + STRING_OH) ;
+      sval->len = len ;
+      sval->ref_cnt = 1 ;
+      (void) strcpy(sval->str, s) ;
+    }
+  }
   else  
-  { p = (STRING *) zmalloc( xlen+5 ) ;
-    p->ref_cnt = 1 ; p->len = xlen ;
+  { sval = (STRING *) zmalloc( xlen + STRING_OH ) ;
+    sval->ref_cnt = 1 ; sval->len = xlen ;
     /* zero out the end marker */
-    p->str[xlen] = 0 ; 
+    sval->str[xlen] = 0 ; 
   }
 
-  return p ;
+  return sval ;
 }
 
 
@@ -101,6 +66,6 @@ STRING *new_STRING(s, xlen)
 
 void  DB_free_STRING(sval)
   register STRING *sval ;
-{ if ( -- sval->ref_cnt == 0 )  zfree(sval, sval->len+5) ; }
+{ if ( -- sval->ref_cnt == 0 )  zfree(sval, sval->len+STRING_OH) ; }
 
 #endif

@@ -11,6 +11,12 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	rexp.h,v $
+ * Revision 3.6  92/01/21  17:31:45  brennan
+ * moved ison() macro out of rexp[23].c
+ * 
+ * Revision 3.5  91/10/29  10:53:55  brennan
+ * SIZE_T
+ * 
  * Revision 3.4  91/08/13  09:10:02  brennan
  * VERSION .9994
  * 
@@ -141,6 +147,8 @@ typedef  struct
 #define  E7  (-7)
 
 #define  MEMORY_FAILURE      5
+
+#define  ison(b,x)  ((b)[((unsigned char)(x))>>3] & (1<<((x)&7)))
 
 /* struct for the run time stack */
 typedef struct {

@@ -12,23 +12,8 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log:	da.c,v $
- * Revision 3.3.1.1  91/09/14  17:22:56  brennan
- * VERSION 1.0
- * 
- * Revision 3.3  91/08/13  06:51:02  brennan
- * VERSION .9994
- * 
- * Revision 3.2  91/06/28  04:16:24  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:27:08  brennan
- * VERSION 0.995
- * 
- * Revision 2.2  91/06/06  09:21:54  brennan
- * added static decl to make STARDENT compiler happy
- * 
- * Revision 2.1  91/04/08  08:22:50  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:55:45  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -36,8 +21,14 @@ the GNU General Public License, version 2, 1991.
 /*  da.c  */
 /*  disassemble code */ 
 
+/* This and new posix stuff won't fit in small model DOS  */
+
+
 
 #include  "mawk.h"
+
+#if ! SM_DOS
+
 #include  "code.h"
 #include  "bi_funct.h"
 #include  "repl.h"
@@ -45,36 +36,89 @@ the GNU General Public License, version 2, 1991.
 
 static char *PROTO(find_bi_name, (PF_CP) ) ;
 
+static struct sc {
+char op ; char *name ;
+} simple_code[] = {
+_STOP, "stop",
+FE_PUSHA, "fe_pusha",
+FE_PUSHI, "fe_pushi",
+A_TEST, "a_test",
+A_DEL , "a_del",
+A_CAT, "a_cat",
+_POP, "pop",
+_ADD, "add",
+_SUB, "sub",
+_MUL, "mul",
+_DIV, "div",
+_MOD, "mod",
+_POW, "pow",
+_NOT, "not",
+_UMINUS, "uminus",
+_UPLUS, "uplus",
+_DUP, "dup",
+_TEST, "test",
+_CAT, "cat",
+_ASSIGN, "assign",
+_ADD_ASG, "add_asg",
+_SUB_ASG, "sub_asg",
+_MUL_ASG, "mul_asg",
+_DIV_ASG, "div_asg",
+_MOD_ASG, "mod_asg",
+_POW_ASG, "pow_asg",
+NF_PUSHI, "nf_pushi",
+F_ASSIGN, "f_assign",
+F_ADD_ASG, "f_add_asg",
+F_SUB_ASG, "f_sub_asg",
+F_MUL_ASG, "f_mul_asg",
+F_DIV_ASG, "f_div_asg",
+F_MOD_ASG, "f_mod_asg",
+F_POW_ASG, "f_pow_asg",
+_POST_INC, "post_inc",
+_POST_DEC, "post_dec",
+_PRE_INC, "pre_inc",
+_PRE_INC, "pre_dec",
+F_POST_INC, "f_post_inc",
+F_POST_DEC, "f_post_dec",
+F_PRE_INC, "f_pre_inc",
+F_PRE_INC, "f_pre_dec",
+_EQ, "eq",
+_NEQ, "neq",
+_LT, "lt",
+_LTE, "lte",
+_GT, "gt",
+_GTE, "gte",
+_MATCH2, "match2",
+_EXIT, "exit",
+_EXIT0, "exit0",
+_NEXT, "next",
+_RET, "ret",
+_RET0, "ret0",
+_OMAIN, "omain",
+_JMAIN, "jmain",
+OL_GL, "ol_gl",
+OL_GL_NR, "ol_gl_nr",
+_HALT , (char *) 0 } ;
+
 void  da(start, fp)
   INST *start ;
   FILE *fp ;
 { CELL *cp ;
   register INST *p = start ;
+  char *name ;
 
-  while ( 1 )
+  while ( p->op != _HALT )
   { /* print the relative code address (label) */
-    fprintf(fp,"%03ld ", (long)(p - start)) ;
+    fprintf(fp,"%03d ", p - start) ;
 
     switch( p++->op )
     {
-      case _HALT :  fprintf(fp,"halt\n") ; return ;
-      case _STOP :  fprintf(fp,"stop\n") ; break  ;
-      case _STOP0 : fprintf(fp, "stop0\n") ; break ;
 
       case _PUSHC :
             cp = (CELL *) p++->ptr ;
             switch( cp->type )
-            { case C_DOUBLE :
-                  fprintf(fp,"pushc\t%.6g\n" ,  cp ->dval) ;
-                  break ;
-
-              case C_STRING :
-                  fprintf(fp,"pushc\t\"%s\"\n" ,
-                          ((STRING *)cp->ptr)->str) ;
-                  break ;
-
+            { 
               case C_RE :
-                  fprintf(fp,"pushc\t0x%lx\t/%s/\n" , (long)cp->ptr ,
+                  fprintf(fp,"pushc\t0x%lx\t/%s/\n" , (long) cp->ptr ,
                     re_uncompile(cp->ptr) ) ;
                   break ;
 
@@ -100,15 +144,48 @@ void  da(start, fp)
             }
             break ;
 
+      case  _PUSHD :
+                  fprintf(fp,"pushd\t%.6g\n" ,  *(double*)p++->ptr) ;
+                  break ;
+      case  _PUSHS :
+                { STRING *sval = (STRING *) p++->ptr ;
+                  fprintf(fp,"pushs\t\"%s\"\n" , sval->str) ;
+                  break ;
+                }
+
+      case  _MATCH0 :
+      case  _MATCH1 :
+            fprintf(fp, "match%d\t0x%lx\t/%s/\n" , 
+                p[-1].op == _MATCH1, (long) p->ptr,
+                re_uncompile(p->ptr) ) ;
+            p++ ;
+            break ;
+
       case _PUSHA :
-            fprintf(fp,"pusha\t0x%lx\n", (long)(p++ -> ptr)) ;
+            fprintf(fp,"pusha\t%s\n", 
+                  reverse_find(ST_VAR, & p++ -> ptr)) ;
             break ;
 
       case _PUSHI :
-            if ( (CELL *)p->ptr == field )
+            cp = (CELL *) p++ -> ptr ;
+            if ( cp == field )
                 fprintf(fp, "pushi\t$0\n") ;
-            else fprintf(fp,"pushi\t0x%lx\n", (long)(p -> ptr)) ;
-            p++ ;
+            else
+            if ( cp == &fs_shadow )
+                fprintf(fp, "pushi\t@fs_shadow\n") ;
+            else 
+            { 
+               if ( 
+#if  LM_DOS
+		SAMESEG(cp,field) &&
+#endif
+	       cp > NF && cp <= LAST_PFIELD )
+                  name = reverse_find(ST_FIELD, &cp) ;
+               else
+                  name = reverse_find(ST_VAR, &cp) ;
+
+               fprintf(fp, "pushi\t%s\n", name) ;
+            }
             break ;
 
       case  L_PUSHA :
@@ -132,105 +209,38 @@ void  da(start, fp)
             break ;
 
       case F_PUSHA :
-            fprintf(fp,"f_pusha\t$%ld\n" , (long)((CELL *)p++->ptr - field) ) ;
+            cp = (CELL *) p++ -> ptr ;
+            if (
+#if  LM_DOS
+		SAMESEG(cp,field) &&
+#endif
+	        cp >= NF && cp <= LAST_PFIELD )
+                 fprintf(fp, "f_pusha\t%s\n", 
+                        reverse_find(ST_FIELD, &cp)) ;
+            else
+                fprintf(fp, "f_pusha\t$%d\n", 
+                    field_addr_to_index(cp)) ;
             break ;
 
       case F_PUSHI :
-            fprintf(fp,"f_pushi\t$%ld\n" , (long)((CELL *)p++->ptr - field) ) ;
-            break ;
-
-      case FE_PUSHA :
-            fprintf(fp,"fe_pusha\n" ) ;
-            break ;
-
-      case FE_PUSHI :
-            fprintf(fp,"fe_pushi\n" ) ;
+            p++ ;
+            fprintf(fp, "f_pushi\t$%d\n", p++ -> op) ;
             break ;
 
       case AE_PUSHA :
-            fprintf(fp,"ae_pusha\t0x%lx\n" , (long)(p++->ptr)) ;
+            fprintf(fp,"ae_pusha\t%s\n" , 
+                     reverse_find(ST_ARRAY, & p++->ptr) ) ;
             break ;
 
       case AE_PUSHI :
-            fprintf(fp,"ae_pushi\t0x%lx\n" , (long)(p++->ptr)) ;
+            fprintf(fp,"ae_pushi\t%s\n" , 
+                reverse_find(ST_ARRAY, & p++->ptr)) ;
             break ;
 
       case A_PUSHA :
-            fprintf(fp,"a_pusha\t0x%lx\n" , (long)(p++->ptr)) ;
+            fprintf(fp,"a_pusha\t%s\n" , 
+                reverse_find(ST_ARRAY, & p++->ptr)) ;
             break ;
-
-      case A_TEST :
-            fprintf(fp,"a_test\n" ) ;
-            break ;
-
-      case A_DEL :
-            fprintf(fp,"a_del\n" ) ;
-            break ;
-
-      case A_CAT :
-            fprintf(fp,"a_cat\t%d\n", p++->op ) ;
-            break ;
-
-      case _POP :
-            fprintf(fp,"pop\n") ;
-            break ;
-
-      case  _ADD :
-            fprintf(fp,"add\n") ; break ;
-
-      case  _SUB :
-            fprintf(fp,"sub\n") ; break ;
-      case  _MUL :
-            fprintf(fp,"mul\n") ; break ;
-      case  _DIV :
-            fprintf(fp,"div\n") ; break ;
-      case  _MOD :
-            fprintf(fp,"mod\n") ; break ;
-      case  _POW :
-            fprintf(fp,"pow\n") ; break ;
-      case  _NOT :
-            fprintf(fp,"not\n") ; break ;
-      case  _UMINUS :
-            fprintf(fp,"uminus\n") ; break ;
-      case  _UPLUS :
-            fprintf(fp,"plus\n") ; break ;
-      case  _DUP :
-            fprintf(fp,"dup\n") ; break ;
-      case  _TEST :
-            fprintf(fp,"test\n") ; break ;
-
-      case  _CAT  :
-            fprintf(fp,"cat\n") ; break ;
-
-      case  _ASSIGN :
-            fprintf(fp,"assign\n") ; break ;
-      case  _ADD_ASG :
-            fprintf(fp,"add_asg\n") ; break ;
-      case  _SUB_ASG :
-            fprintf(fp,"sub_asg\n") ; break ;
-      case  _MUL_ASG :
-            fprintf(fp,"mul_asg\n") ; break ;
-      case  _DIV_ASG :
-            fprintf(fp,"div_asg\n") ; break ;
-      case  _MOD_ASG :
-            fprintf(fp,"mod_asg\n") ; break ;
-      case  _POW_ASG :
-            fprintf(fp,"pow_asg\n") ; break ;
-
-      case  F_ASSIGN :
-            fprintf(fp,"f_assign\n") ; break ;
-      case  F_ADD_ASG :
-            fprintf(fp,"f_add_asg\n") ; break ;
-      case  F_SUB_ASG :
-            fprintf(fp,"f_sub_asg\n") ; break ;
-      case  F_MUL_ASG :
-            fprintf(fp,"f_mul_asg\n") ; break ;
-      case  F_DIV_ASG :
-            fprintf(fp,"f_div_asg\n") ; break ;
-      case  F_MOD_ASG :
-            fprintf(fp,"f_mod_asg\n") ; break ;
-      case  F_POW_ASG :
-            fprintf(fp,"f_pow_asg\n") ; break ;
 
       case  _PUSHINT :
             fprintf(fp,"pushint\t%d\n" , p++ -> op ) ;
@@ -247,30 +257,6 @@ void  da(start, fp)
                 ? "printf" : "print") ;
             break ;
       
-      case  _POST_INC :
-            fprintf(fp,"post_inc\n") ; break ;
-
-      case  _POST_DEC :
-            fprintf(fp,"post_dec\n") ; break ;
-
-      case  _PRE_INC :
-            fprintf(fp,"pre_inc\n") ; break ;
-
-      case  _PRE_DEC :
-            fprintf(fp,"pre_dec\n") ; break ;
-
-      case  F_POST_INC :
-            fprintf(fp,"f_post_inc\n") ; break ;
-
-      case  F_POST_DEC :
-            fprintf(fp,"f_post_dec\n") ; break ;
-
-      case  F_PRE_INC :
-            fprintf(fp,"f_pre_inc\n") ; break ;
-
-      case  F_PRE_DEC :
-            fprintf(fp,"f_pre_dec\n") ; break ;
-
       case  _JMP :
       case  _JNZ :
       case  _JZ  :
@@ -278,51 +264,21 @@ void  da(start, fp)
             char *s = j == _JMP ? "jmp" : 
                       j == _JNZ ? "jnz" : "jz" ;
 
-            fprintf(fp,"%s\t\t%03ld\n" , s ,
-              (long)((p - start) + p->op - 1) ) ;
+            fprintf(fp,"%s\t\t%03d\n" , s ,
+              (p - start) + p->op  ) ;
             p++ ;
             break ;
           }
+
+      case  SET_ALOOP :
+	    fprintf(fp, "s_aloop\t%03d\n", p + p->op - start ) ;
+	    p++ ;
+	    break ;
     
-      case  _EQ  :
-            fprintf(fp,"eq\n") ; break ;
-
-      case  _NEQ  :
-            fprintf(fp,"neq\n") ; break ;
-
-      case  _LT  :
-            fprintf(fp,"lt\n") ; break ;
-
-      case  _LTE  :
-            fprintf(fp,"lte\n") ; break ;
-
-      case  _GT  :
-            fprintf(fp,"gt\n") ; break ;
-
-      case  _GTE  :
-            fprintf(fp,"gte\n") ; break ;
-
-      case  _MATCH :
-            fprintf(fp,"match_op\n") ; break ;
-
-      case  A_LOOP :
-            fprintf(fp,"a_loop\t%03ld\n", (long)(p-start+p[1].op)) ;
+      case  ALOOP :
+            fprintf(fp,"aloop\t%03d\n", p-start+p->op) ;
             p += 2 ;
             break ;
-
-      case  _EXIT  :
-            fprintf(fp, "exit\n") ; break ;
-
-      case  _EXIT0  :
-            fprintf(fp, "exit0\n") ; break ;
-
-      case  _NEXT  :
-            fprintf(fp, "next\n") ; break ;
-
-      case  _RET  :
-            fprintf(fp, "ret\n") ; break ;
-      case  _RET0 :
-            fprintf(fp, "ret0\n") ; break ;
 
       case  _CALL :
             fprintf(fp, "call\t%s\t%d\n", 
@@ -333,14 +289,22 @@ void  da(start, fp)
       case  _RANGE :
             fprintf(fp, "range\t%03d %03d %03d\n",
               /* label for pat2, action, follow */
-              (long)(p - start + p[1].op) ,
-              (long)(p - start + p[2].op) ,
-              (long)(p - start + p[3].op) ) ;
+              p - start + p[1].op ,
+              p - start + p[2].op ,
+              p - start + p[3].op ) ;
             p += 4 ; 
             break ;
       default :
-            fprintf(fp,"bad instruction\n") ;
-            return ;
+            { 
+              struct sc *q = simple_code ;
+	      int k = (p-1)->op ;
+
+              while ( q->op != _HALT && q->op != k )  q++ ;
+
+              fprintf(fp, "%s\n",
+                q->op != _HALT  ? q->name : "bad instruction") ;
+            }
+            break ;
     }
   }
 }
@@ -349,7 +313,6 @@ static struct {
 PF_CP action ;
 char *name ;
 } special_cases[] = {
-bi_length, "length",
 bi_split, "split",
 bi_match, "match",
 bi_getline,"getline",
@@ -396,3 +359,5 @@ void  fdump()
     zfree(p, sizeof(struct fdump)) ;
   }
 }
+
+#endif  /* SM_DOS */

@@ -12,37 +12,16 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log:	types.h,v $
- * Revision 3.3.1.1  91/09/14  17:24:27  brennan
- * VERSION 1.0
- * 
- * Revision 3.3  91/08/13  06:52:16  brennan
- * VERSION .9994
- * 
- * Revision 3.2  91/06/28  04:17:43  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:28:27  brennan
- * VERSION 0.995
- * 
- * Revision 2.4  91/06/04  06:48:40  brennan
- * type to store parse table mem usage
- * 
- * Revision 2.3  91/05/28  09:05:21  brennan
- * removed main_buff
- * 
- * Revision 2.2  91/05/16  12:20:28  brennan
- * cleanup of machine dependencies
- * 
- * Revision 2.1  91/04/08  08:24:15  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:59:39  brennan
+ * 1.1 pre-release
  * 
 */
 
 
 /*  types.h  */
 
-#ifndef  TYPES_H
-#define  TYPES_H
+#ifndef  MAWK_TYPES_H
+#define  MAWK_TYPES_H
 
 #if     HAVE_VOID_PTR
 typedef  void *PTR ;
@@ -92,10 +71,14 @@ typedef  char *PTR ;
 #define  STRNUM_AND_MBSTRN  ((1<<C_STRNUM)+(1<<C_MBSTRN))
 
 typedef  struct {
+unsigned len ;
 unsigned short ref_cnt ;
-unsigned short len ;
-char str[4] ;
+char str[2] ;
 } STRING ;
+
+/* number of bytes more than the characters to store a
+   string */
+#define  STRING_OH   (sizeof(STRING)-1)
 
 
 typedef  struct cell {
@@ -109,7 +92,7 @@ double  dval ;
 /* all builtins are passed the evaluation stack pointer and
    return its new value, here is the type */
 
-#if	HAVE_PROTOS
+#if     HAVE_PROTOS
 typedef CELL *(*PF_CP)(CELL *) ;
 #else
 typedef CELL *(*PF_CP)() ;
@@ -121,11 +104,6 @@ int  op ;
 PTR  ptr ;
 }  INST ;
 
-/* a scratch buffer type */
-union tbuff {
-PTR   ptr_buff[MAX_SPLIT] ;
-char   string_buff[SPRINTF_SZ] ;
-} ;
 
 /* how we give parser table memory to zmalloc */
 struct yacc_mem {

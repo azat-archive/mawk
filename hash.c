@@ -12,23 +12,8 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log:	hash.c,v $
- * Revision 3.3.1.1  91/09/14  17:23:26  brennan
- * VERSION 1.0
- * 
- * Revision 3.3  91/08/13  06:51:33  brennan
- * VERSION .9994
- * 
- * Revision 3.2  91/06/28  04:16:47  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:27:36  brennan
- * VERSION 0.995
- * 
- * Revision 2.2  91/06/04  06:45:10  brennan
- * removed <string.h>
- * 
- * Revision 2.1  91/04/08  08:23:13  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:56:05  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -178,3 +163,64 @@ void  restore_ids()
     hash_table[h] = p ;
   }
 }
+
+
+/* search the symbol table backwards for the
+   disassembler.  This is slow -- so what
+*/
+
+#if ! SM_DOS
+
+char *reverse_find( type, ptr)
+  int type ;
+  PTR ptr ;
+{
+  CELL *cp ;
+  ARRAY array ;
+  static char uk[] = "unknown" ;
+
+  int i ;
+  HASHNODE *p ;
+
+
+  switch( type )
+  {
+    case ST_VAR :
+    case ST_FIELD :
+       cp = *(CELL **) ptr ;
+       break ;
+
+    case ST_ARRAY :
+       array = *(ARRAY *) ptr ;
+       break ;
+
+    default :  return uk ;
+  }
+
+  for(i = 0 ; i < HASH_PRIME ; i++)
+  {
+    p = hash_table[i] ;
+    while ( p )
+    {
+	if ( p->symtab.type == type )
+	    switch(type)
+	    {
+	      case ST_VAR :
+	      case ST_FIELD :
+		    if ( cp == p->symtab.stval.cp )
+			return p->symtab.name ;
+		    break ;
+
+	      case ST_ARRAY :
+		    if ( array == p->symtab.stval.array )
+			return p->symtab.name ;
+		    break ;
+	    }
+
+	p = p->link ;
+    }
+  }
+  return uk ;
+}
+	  
+#endif

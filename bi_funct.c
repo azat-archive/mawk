@@ -11,57 +11,8 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	bi_funct.c,v $
- * Revision 3.7.1.1  91/09/14  17:22:38  brennan
- * VERSION 1.0
- * 
- * Revision 3.7  91/08/19  10:46:13  brennan
- * fixed small bozo in bi_substr
- * 
- * Revision 3.6  91/08/13  06:50:47  brennan
- * VERSION .9994
- * 
- * Revision 3.5  91/08/03  05:03:50  brennan
- * set RLENGTH to -1 on no match
- * 
- * Revision 3.4  91/07/22  12:31:15  brennan
- * changed how srand() handles strings
- * 
- * Revision 3.3  91/06/28  04:16:03  brennan
- * VERSION 0.999
- * 
- * Revision 3.2  91/06/28  04:14:11  brennan
- * srand() now returns previous seed (posix).
- * 
- * Revision 3.1  91/06/08  06:14:38  brennan
- * VERSION 0.995
- * 
- * Revision 2.9  91/06/08  06:00:22  brennan
- * changed how eof is marked on main_fin
- * 
- * Revision 2.8  91/06/03  07:47:56  brennan
- * added a TEST2 to bi_substr (will I ever get it right?)
- * 
- * Revision 2.7  91/05/16  12:19:23  brennan
- * cleanup of machine dependencies
- * 
- * Revision 2.6  91/05/06  15:00:37  brennan
- * flush output before fork
- * 
- * Revision 2.5  91/04/29  07:45:00  brennan
- * plugged big memory leak and fixed small bozo in bi_substr
- * plugged small memory leak in gsub()
- * 
- * Revision 2.4  91/04/26  06:59:41  brennan
- * use builtin random number generator for portability
- * 
- * Revision 2.3  91/04/17  06:34:00  brennan
- * index("","") should be 1 not 0 for consistency with match("",//)
- * 
- * Revision 2.2  91/04/09  12:38:42  brennan
- * added static to funct decls to satisfy STARDENT compiler
- * 
- * Revision 2.1  91/04/08  08:22:17  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:55:35  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -89,6 +40,7 @@ BI_REC  bi_funct[] = { /* info to load builtins */
 
 "index" , bi_index , 2, 2 ,
 "substr" , bi_substr, 2, 3,
+"length" , bi_length, 0, 1,
 "sprintf" , bi_sprintf, 1, 255,
 "sin", bi_sin , 1, 1 ,
 "cos", bi_cos , 1, 1 ,
@@ -101,16 +53,8 @@ BI_REC  bi_funct[] = { /* info to load builtins */
 "srand", bi_srand, 0, 1,
 "close", bi_close, 1, 1,
 "system", bi_system, 1, 1,
-
-#if  MSDOS   /* this might go away, when pipes and system are added
-              for MSDOS  */
-"errmsg", bi_errmsg, 1, 1,
-#endif
-
-#ifdef THINK_C	/* I doubt this will ever go away for the Macintosh
-		   Toy Operating System */
-"errmsg", bi_errmsg, 1, 1,
-#endif
+"toupper", bi_toupper, 1, 1,
+"tolower", bi_tolower, 1, 1,
 
 (char *) 0, (PF_CP) 0, 0, 0 } ;
 
@@ -131,8 +75,6 @@ void bi_funct_init()
     c.type = 0 ; (void) bi_srand(&c) ;
   }
 
-  stp = insert( "length") ;
-  stp->type = ST_LENGTH ;
 }
 
 /**************************************************
@@ -142,6 +84,9 @@ void bi_funct_init()
 CELL *bi_length(sp)
   register  CELL *sp ;
 { unsigned len ;
+
+  if ( sp->type == 0 )  cellcpy(sp, field) ;
+  else sp-- ;
 
   if ( sp->type < C_STRING ) cast1_to_s(sp) ;
   len = string(sp)->len ;
@@ -225,7 +170,7 @@ CELL *bi_substr(sp)
   }
 
   if ( n_args == 2 )  
-  { n = 0x7fff  ;  /* essentially infinity */
+  { n = MAX__INT  ;  
     if ( sp[1].type != C_DOUBLE ) cast1_to_d(sp+1) ; 
   }
   else
@@ -266,27 +211,69 @@ CELL *bi_match(sp)
   if ( sp->type != C_RE )  cast_to_RE(sp) ;
   if ( (--sp)->type < C_STRING )  cast1_to_s(sp) ;
 
-  cell_destroy( & bi_vars[RSTART] ) ;
-  cell_destroy( & bi_vars[RLENGTH] ) ;
-  bi_vars[RSTART].type = C_DOUBLE ;
-  bi_vars[RLENGTH].type = C_DOUBLE ;
+  cell_destroy(RSTART) ;
+  cell_destroy(RLENGTH) ;
+  RSTART->type = C_DOUBLE ;
+  RLENGTH->type = C_DOUBLE ;
 
   p = REmatch(string(sp)->str, (sp+1)->ptr, &length) ;
 
   if ( p )
   { sp->dval = (double) ( p - string(sp)->str + 1 ) ;
-    bi_vars[RLENGTH].dval = (double) length ;
+    RLENGTH->dval = (double) length ;
   }
   else
   { sp->dval = 0.0 ;
-    bi_vars[RLENGTH].dval = -1.0 ; /* posix */
+    RLENGTH->dval = -1.0 ; /* posix */
   }
 
   free_STRING(string(sp)) ;
   sp->type = C_DOUBLE ;
 
-  bi_vars[RSTART].dval = sp->dval ;
+  RSTART->dval = sp->dval ;
 
+  return sp ;
+}
+
+CELL *bi_toupper(sp)
+  CELL *sp ;
+{ STRING *old ;
+  register char *p, *q ;
+
+  if ( sp->type != C_STRING )  cast1_to_s(sp) ;
+  old = string(sp) ;
+  sp->ptr = (PTR) new_STRING((char *) 0, old->len) ;
+
+  q = string(sp)->str ; p = old->str ;
+
+  while ( *p )
+  {
+    *q = *p++ ;
+    if ( *q >= 'a' && *q <= 'z' )  *q += 'A' - 'a' ;
+    q++ ;
+  }
+  free_STRING(old) ;
+  return sp ;
+}
+
+CELL *bi_tolower(sp)
+  CELL *sp ;
+{ STRING *old ;
+  register char *p, *q ;
+
+  if ( sp->type != C_STRING )  cast1_to_s(sp) ;
+  old = string(sp) ;
+  sp->ptr = (PTR) new_STRING((char *) 0, old->len) ;
+
+  q = string(sp)->str ; p = old->str ;
+
+  while ( *p )
+  {
+    *q = *p++ ;
+    if ( *q >= 'A' && *q <= 'Z' )  *q += 'a' - 'A' ;
+    q++ ;
+  }
+  free_STRING(old) ;
   return sp ;
 }
 
@@ -521,8 +508,8 @@ CELL *bi_close(sp)
   return sp ;
 }
 
-#if   ! MSDOS
-#ifndef THINK_C
+#if   HAVE_REAL_PIPES
+
 CELL *bi_system(sp)
   CELL *sp ;
 { int pid ;
@@ -536,7 +523,7 @@ CELL *bi_system(sp)
   { case -1 :  /* fork failed */
 
        errmsg(errno, "could not create a new process") ;
-       ret_val = 128 ;
+       ret_val = 127 ;
        break ;
 
     case  0  :  /* the child */
@@ -544,12 +531,10 @@ CELL *bi_system(sp)
        /* if get here, execl() failed */
        errmsg(errno, "execute of %s failed", shell) ;
        fflush(stderr) ;
-       _exit(128) ;
+       _exit(127) ;
 
     default   :  /* wait for the child */
        ret_val = wait_for(pid) ;
-       if ( ret_val & 0xff ) ret_val = 128 ;
-       else  ret_val = (ret_val & 0xff00) >> 8 ;
        break ;
   }
 
@@ -559,7 +544,9 @@ CELL *bi_system(sp)
   return sp ;
 }
 
-#else   /* THINK_C */
+#endif /* HAVE_REAL_PIPES */
+
+#ifdef  THINK_C
 
 CELL *bi_system( sp )
   register CELL *sp ;
@@ -567,38 +554,24 @@ CELL *bi_system( sp )
   return sp ;
 }
 
-/* prints errmsgs for the Macintosh  */
-CELL *bi_errmsg(sp)
-  register CELL *sp ;
-{
-  cast1_to_s(sp) ;
-  fprintf(stderr, "%s\n", string(sp)->str) ;
-  free_STRING(string(sp)) ;
-  sp->type = C_DOUBLE ;
-  sp->dval = 0.0 ;
-  return sp ;
-}
-
 #endif
-#else   /*  MSDOS   */
+
+
+#if   MSDOS
+
 
 CELL *bi_system( sp )
   register CELL *sp ;
-{ rt_error("no system call in MsDos --yet") ;
+{ int retval ;
+
+  if ( sp->type < C_STRING ) cast1_to_s(sp) ;
+  retval = DOSexec(string(sp)->str) ;
+  free_STRING(string(sp)) ;
+  sp->type = C_DOUBLE ;
+  sp->dval = (double) retval ;
   return sp ;
 }
 
-/* prints errmsgs for MSDOS  */
-CELL *bi_errmsg(sp)
-  register CELL *sp ;
-{
-  cast1_to_s(sp) ;
-  fprintf(stderr, "%s\n", string(sp)->str) ;
-  free_STRING(string(sp)) ;
-  sp->type = C_DOUBLE ;
-  sp->dval = 0.0 ;
-  return sp ;
-}
 #endif
 
 
@@ -630,9 +603,9 @@ CELL *bi_getline(sp)
                 goto  eof ;
 
         cp = (CELL *) sp->ptr ;
-        if ( TEST2(bi_vars+NR) != TWO_DOUBLES ) cast2_to_d(bi_vars+NR) ;
-        bi_vars[NR].dval += 1.0 ;
-        bi_vars[FNR].dval += 1.0 ;
+        if ( TEST2(NR) != TWO_DOUBLES ) cast2_to_d(NR) ;
+        NR->dval += 1.0 ;
+        FNR->dval += 1.0 ;
         break ;
 
     case  F_IN :
@@ -643,7 +616,11 @@ CELL *bi_getline(sp)
         sp-- ;
 
         if ( ! fin_p )   goto open_failure ;
-        if ( ! (p = FINgets(fin_p, &len)) )  goto eof ; 
+        if ( ! (p = FINgets(fin_p, &len)) )  
+        {
+          FINsemi_close(fin_p) ;
+          goto eof ; 
+        }
         cp = (CELL *) sp->ptr ;
         break ;
 
@@ -654,7 +631,15 @@ CELL *bi_getline(sp)
         free_STRING(string(sp)) ;
 
         if ( ! fin_p )   goto open_failure ;
-        if ( ! (p = FINgets(fin_p, &len)) )  goto eof ; 
+        if ( ! (p = FINgets(fin_p, &len)) ) 
+        { 
+          FINsemi_close(fin_p) ;
+#if  HAVE_REAL_PIPES
+          /* reclaim process slot */
+          (void) wait_for(0) ;
+#endif
+          goto eof ; 
+        }
         cp = (CELL *) (sp+1)->ptr ;
         break ;
 
@@ -675,12 +660,7 @@ CELL *bi_getline(sp)
       (void) memcpy( string(&tc)->str, p, SIZE_T(len)) ;
     }
 
-    if ( cp  >= field && cp < field+NUM_FIELDS )
-           field_assign(cp-field, &tc) ;
-    else
-    { cell_destroy(cp) ;
-      (void) cellcpy(cp, &tc) ;
-    }
+    slow_cell_assign(cp, &tc) ;
 
     cell_destroy(&tc) ;
 
@@ -756,12 +736,7 @@ CELL *bi_sub( sp )
       if ( back_len )  (void) memcpy(p, back, SIZE_T(back_len)) ;
     }
 
-    if ( cp  >= field && cp < field+NUM_FIELDS )
-           field_assign(cp-field, &tc) ;
-    else
-    { cell_destroy(cp) ;
-      (void) cellcpy(cp, &tc) ;
-    }
+    slow_cell_assign(cp, &tc) ;
 
     free_STRING(string(&tc)) ;
   }
@@ -876,12 +851,9 @@ CELL *bi_gsub( sp )
   tc.ptr = (PTR) gsub(sp->ptr, sp+1, string(&sc)->str, 1) ;
 
   if ( repl_cnt )
-  { tc.type = C_STRING ;
-
-    if ( cp >= field && cp < field + NUM_FIELDS )
-        field_assign(cp-field, &tc) ;
-    else
-    { cell_destroy(cp) ; (void) cellcpy(cp, &tc) ; }
+  { 
+    tc.type = C_STRING ;
+    slow_cell_assign(cp, &tc) ;
   }
 
   /* cleanup */

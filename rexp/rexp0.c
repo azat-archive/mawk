@@ -11,6 +11,12 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	rexp0.c,v $
+ * Revision 3.6  92/01/21  17:32:51  brennan
+ * added some casts so that character classes work with signed chars
+ * 
+ * Revision 3.5  91/10/29  10:53:57  brennan
+ * SIZE_T
+ * 
  * Revision 3.4  91/08/13  09:10:05  brennan
  * VERSION .9994
  * 
@@ -225,14 +231,14 @@ out:
   BUILD A CHARACTER CLASS
  *---------------------------*/
 
-#define  on( b, x)  ( (b)[(x)>>3] |= ( 1 << ((x)&7) ))
+#define  on( b, x)  ( (b)[((unsigned char)(x))>>3] |= ( 1 << ((x)&7) ))
 
 static  void  PROTO(block_on, (BV,int,int) ) ;
 
 static  void  block_on( b, x, y)
-  BV b ; int x, y ;  /* must call with x<=y */
-{ int lo = x >> 3 ;
-  int hi = y >> 3 ;
+  BV b ; int x, y ; 
+{ int lo = (x&0xff) >> 3 ;
+  int hi = (y&0xff) >> 3 ;
   int  i, j, bit  ;
 
   if ( lo == hi )
@@ -279,7 +285,7 @@ static int  do_class( start, mp)
   bvp = (BV *) RE_malloc( sizeof(BV) ) ;
   (void) memset( bvp, 0, SIZE_T(sizeof(BV)) ) ;
 
-  comp_flag = *p == '^' ? p++ , 1 : 0 ;
+  comp_flag = *p == '^' ? (p++ , 1) : 0 ;
   prev = -1 ;  /* indicates  -  cannot be part of a range  */
 
   while ( p < q )
@@ -293,7 +299,7 @@ static int  do_class( start, mp)
           continue ;
 
         case '-' :
-          if ( prev == -1 || p+1 == q || prev > *(p+1) )
+          if ( prev == -1 || p+1 == q || prev > *(unsigned char*)(p+1) )
              { prev = '-' ; on(*bvp, '-') ; }
           else
              { p++ ;
@@ -303,7 +309,7 @@ static int  do_class( start, mp)
           break ;
 
         default :
-          prev = *p ;
+          prev = *(unsigned char*)p ;
           on(*bvp, *p) ;
           break ;
       }

@@ -4,6 +4,8 @@
 # floating point exceptions
 #
 
+PATH=.:$PATH
+
 test1='BEGIN{ print 4/0 }'
 
 
@@ -39,6 +41,11 @@ echo
 # the returns should all be zero or all 1
 # core dumps not allowed
 
+trap '
+echo compilation defines for floating point are incorrect
+rm -f temp$$
+exit 1'  0
+
 echo
 echo ==============================
 
@@ -69,21 +76,20 @@ if [ $same = 1 ]
 	   else
 	     echo "but the library is not IEEE754 compatible"
 	     echo "test 3 failed"
-	     rm temp$$
+	     exit 1
 	fi
       else echo results consistent: trapping floating exceptions
    fi
 
+   trap  0
    rm -f temp$$
    exit 0
 
    else
    echo results are not consistent
 echo 'return values should all be 0 if ignoring FPEs (e.g. with IEEE754)
-or all 1 if trapping FPEs
-'
+or all 1 if trapping FPEs'
 
-rm -f temp$$
 exit 1
 fi
 

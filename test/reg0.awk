@@ -1,2 +1,3 @@
 
-/return/ {cnt++}  END{print cnt}
+/return/ {cnt++}
+END{print cnt}

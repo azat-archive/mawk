@@ -1,4 +1,4 @@
-.TH MAWK 1  "Sep 14 1991" "Version 1.0" "USER COMMANDS"
+.TH MAWK 1  "Jan 22 1992" "Version 1.1" "USER COMMANDS"
 .\" strings
 .ds ex \fIexpr\fR
 .SH NAME
@@ -6,13 +6,24 @@ mawk \- pattern scanning and text processing language
 
 .SH SYNOPSIS
 .B mawk
-[\-F\fIs\fR] 'program text' [file ...]
+[\-\fBW
+.IR option ]
+[\-\fBF
+.IR value ]
+[\-\fBv
+.IR var=value ]
+[\-\|\-] 'program text' [file ...]
 .br
 .B mawk
-[\-F\fIs\fR] \-f program-file [file ...]
-.br
-.B mawk
-\-V
+[\-\fBW
+.IR option ]
+[\-\fBF
+.IR value ]
+[\-\fBv
+.IR var=value ]
+[\-\fBf
+.IR program-file ]
+[\-\|\-] [file ...]
 
 .SH DESCRIPTION
 .B mawk
@@ -25,8 +36,16 @@ and for prototyping and experimenting with algorithms.
 is a \fInew awk\fR meaning it implements the AWK language as
 defined in Aho, Kernighan and Weinberger,
 .I "The AWK Programming Language,"
-Addison-Wesley Publishing, 1988.  (Hereafter refered to as
+Addison-Wesley Publishing, 1988.  (Hereafter referred to as
 the AWK book.)
+.B mawk
+conforms to the Posix 1003.2
+(draft 11.2)
+definition of the AWK language
+which contains a few features not described in the AWK
+book,  and
+.B mawk
+provides a small number of extensions.
 
 An AWK program is a sequence of \fIpattern {action}\fR pairs and
 function definitions.
@@ -48,22 +67,55 @@ and if it matches, the program text for
 is executed.
 
 .SH OPTIONS
-.IP "\fB\-F\fIs\fR"
-Set the field separator, \fBFS\fR, to string \fIs\fR.
 
-.IP "\fB\-f file\fR"
-Read the program text from \fBfile\fR instead of from the
-command line.
+.TP \w'\-\fBv'+\w'\fIvar=value'u+2n
+\-\fBF \fIvalue
+sets the field separator, \fBFS\fR, to 
+.IR value .
 
-.IP "\fB\-V\fR"
-.B mawk
-writes its version and copyright notice
-to stdout and internal limits to
-stderr and exits 0.
-The internal limits can be changed by recompilation.
+.IP "\-\fBf \fIfile"
+Program text is read from \fIfile\fR instead of from the
+command line.  Multiple \-f options are allowed.
+
+.IP "\-\fBv \fIvar=value"
+assigns 
+.I value
+to program variable 
+.IR var .
+
+.IP "\-\|\-"
+indicates the unambiguous end of options.
 .PP
-The \-f option must be last and when the \-V option is recognized the
-rest of the command line is ignored.
+The above options will be available with any Posix compatible
+implementation of AWK, and implementation specific options are
+prefaced with \-W. 
+.B mawk 
+provides three:
+
+.TP \w'\-\fBv'+\w'\fIvar=value'u+2n
+\-\fBW \fRversion
+.B mawk
+writes its version and copyright
+to stdout and compiled limits to
+stderr and exits 0.
+.TP
+\-\fBW \fRdump
+writes an assembler like listing of the internal
+representation of the program to stderr.
+.TP
+\-\fBW \fRsprintf=\fInum
+adjusts the size of 
+.B mawk's
+internal sprintf buffer to 
+.I num
+bytes.  More than rare use of this option indicates
+.B mawk
+should be recompiled.
+.TP
+\-\fBW \fRposix_space
+forces
+.B mawk
+not to consider '\\n' to be space.
 
 .SH "THE AWK LANGUAGE"
 .SS "\fB1. Program structure"
@@ -78,20 +130,11 @@ A pattern can be:
 \fBBEGIN
 END\fR
 expression
-/regular expression/
-( pattern )
-! pattern
-pattern || pattern
-pattern && pattern
-pattern , pattern    (a range pattern)
+expression , expression
 .sp
 .RE
 .fi
-Range, 
-.B BEGIN
-and
-.B END
-patterns cannot be combined with other patterns.  One, but not both,
+One, but not both,
 of \fIpattern {action}\fR can be omitted.   If 
 .I {action}
 is omitted it is implicitly { print }.  If 
@@ -230,11 +273,19 @@ numeric prefix as with
 A numeric expression is converted to string by replacing
 .I expr
 with 
-.BR sprintf (
-.BR OFMT ,
-.IR expr ).
-Sprintf() is an AWK built-in that duplicates the functionality of
-.IR sprintf (3).
+.BR sprintf(CONVFMT ,
+.IR expr ),
+unless 
+.I expr
+can be represented on the host machine as an exact integer then
+it is converted to \fBsprintf\fR("%d", \*(ex).
+.B Sprintf()
+is an AWK built-in that duplicates the functionality of
+.IR sprintf (3),
+and
+.B CONVFMT
+is a built-in variable used for internal conversion
+from number to string and initialized to "%.6g".
 Explicit type conversions can be forced,
 \*(ex ""
 is string and
@@ -244,13 +295,19 @@ is numeric.
 To evaluate,
 \*(ex\d1\u \fBrel-op \*(ex\d2\u,
 if both operands are numeric or number and string then the comparison
-is numeric; if both operands are string the comparison is string;
-if one operand is string, the non-string operand is converted and
-the comparison is string.  The result is numeric, 1 or 0.
+is numeric; if both operands are string the comparison is string.
+If exactly one operand is string and after trimming spaces and
+tabs from the front and back the remaining string is entirely
+numeric in form, then the string is converted to number and the
+comparison is numeric; otherwise, the numeric operand is converted
+to string and the comparison is string.
+The result of a comparison is numeric, 0 or 1.
+.PP
 In boolean contexts such as,
 \fBif\fR ( \*(ex ) \fIstatement\fR,
 a string expression evaluates true if and only if it is not the
-empty string ""; otherwise if and only if not numerically zero.
+empty string ""; 
+numeric values if and only if not numerically zero.
 .\"
 .SS "\fB3. Regular expressions"
 In the AWK language, records, fields and strings are often
@@ -269,20 +326,23 @@ defined by
 .IR r .
 With no match the expression evaluates to 0; replacing
 ~ with the "not match" operator, !~ , reverses the meaning.
-As a pattern,
+As  pattern-action pairs,
 .nf
 .sp
-	/\fIr\fR/ { \fIaction\fR } 
-.sp
-is the same as
-.sp
-	\fB$0\fR ~ /\fIr\fR/ { \fIaction\fR }
+	/\fIr\fR/ { \fIaction\fR }   and\
+   \fB$0\fR ~ /\fIr\fR/ { \fIaction\fR }
 .sp
 .fi
+are the same,
 and for each input record that matches
 .IR r ,
 .I action
 is executed.
+In fact, /\fIr\fR/ is an AWK expression that is
+equivalent to (\fB$0\fR ~ /\fIr\fR/) anywhere except when on the
+right side of a match operator or passed as an argument to
+a built-in function that expects a regular expression 
+argument.
 .PP
 AWK uses extended regular expressions as with
 .IR egrep (1).
@@ -376,7 +436,7 @@ Any expression can be used on the right hand side of the ~ or !~
 operators or
 passed to a built-in that expects
 a regular expression.
-If needed, it is converted to string and then interpreted
+If needed, it is converted to string, and then interpreted
 as a regular expression.  For example,
 .nf
 .sp
@@ -431,8 +491,11 @@ Assignment to
 or to a field
 causes 
 .B $0
-to be reconstructed using
-.BR  OFS .
+to be reconstructed by
+concatenating the
+.B $i's
+separated by
+.BR OFS .
 Assignment to a field with index greater than
 .BR NF ,
 increases
@@ -449,7 +512,7 @@ For example,
 .nf
 	echo 24 24E | 
 	mawk '{ print($1>100, $1>"100", $2>100, $2>"100") }'
-	0 1 1 1
+	0 0 1 1
 .fi
 .sp
 .B $0
@@ -457,10 +520,11 @@ and
 .B $2
 are string and
 .B $1
-is number and string.  The first comparison is numeric,
-the second is string, the third is string
-(100 is converted to "100"),
-and the last is string.
+is number and string.  The first 
+and second comparisons are numeric and the last
+two are string.  In the second "100" is
+converted to 100, and in the third 100 is
+converted to "100".
 .\"
 .SS "\fB5. Expressions and operators"
 .PP
@@ -509,6 +573,11 @@ expression can be parenthesized.
 .ds ae \fIarray\fR[\fIexpr\fR]
 Awk provides one-dimensional arrays.  Array elements are expressed
 as \*(ae.
+.I Expr
+is internally converted to string type, so, for example,
+A[1] and A["1"] are the same element and the actual
+index is "1".
+Arrays indexed by strings are called associative arrays.
 Initially an array is empty; elements exist when first accessed.
 An expression,
 \fIexpr\fB in\fI array\fR
@@ -518,7 +587,7 @@ exists, else to 0.
 .PP
 There is a form of the
 .B for
-statement that loops over each element of an array.
+statement that loops over each index of an array.
 .nf
 .sp
 	\fBfor\fR ( \fIvar\fB in \fIarray \fR) \fIstatement\fR
@@ -526,11 +595,15 @@ statement that loops over each element of an array.
 .fi
 sets
 .I var
-to each element of
+to each index of
 .I array
 and executes 
 .IR statement .
-The order of execution is not defined.
+The order that
+.I var
+transverses the indices of
+.I array
+is not defined.
 .PP
 The statement,
 .B delete
@@ -564,6 +637,16 @@ number of command line arguments.
 .TP
 .B ARGV
 array of command line arguments, 0..ARGC-1.
+.TP
+.B CONVFMT
+format for internal conversion of numbers to string, 
+initially = "%.6g".
+.TP
+.B ENVIRON
+array indexed by environment variables.  An environment string,
+\fIvar=value\fR is stored as 
+\fBENVIRON\fR[\fIvar\fR] = 
+.IR value .
 .TP
 .B FILENAME
 name of the current input file.
@@ -639,7 +722,7 @@ The first character of
 .I s
 is in position 1.
 .TP
-length(\fIs\fR)  length
+length(\fIs\fR)  length()
 Returns the length of string
 .IR s ;
 without an argument, returns the length of 
@@ -700,6 +783,16 @@ is omitted, the suffix of
 starting at
 .I i
 is returned.
+.TP
+tolower(\fIs\fR)
+Returns a copy of
+.I s
+with all upper case characters converted to lower case.
+.TP
+toupper(\fIs\fR)
+Returns a copy of
+.I s
+with all lower case characters converted to upper case.
 .RE
 .PP
 Arithmetic functions
@@ -749,15 +842,26 @@ print \*(ex\d1\u, \*(ex\d2\u, ..., \*(ex\dn\u
 writes
 \*(ex\d1\u \fBOFS \*(ex\d2\u \fBOFS\fR ... \*(ex\dn\u
 .B ORS
-to standard output.
+to standard output.  Numeric expressions are converted to
+string with 
+.BR OFMT .
 .TP
 printf \fIformat, expr-list\fR
 duplicates the printf C library function writing to standard output.
-Supported conversions are %c, %d, %e, %f, %g, %o and %x. \-,
-width and .prec are supported.  Dynamic widths can be built using
-string operations.
+The complete ANSI C format specifications are recognized with
+conversions %c, %d, %e, %E, %f, %g, %G,
+%i, %o, %s, %u, %x, %X and %%,
+and conversion qualifiers h and l.
 .RE
 .PP
+The argument list to print or printf can optionally be enclosed in
+parentheses.
+Print formats numbers using
+.B OFMT
+or "%d" for exact integers.
+"%c" with a numeric argument prints the corresponding 8 bit 
+character, with a string argument it prints the first character of
+the string.
 The output of print and printf can be redirected to a file or
 command by appending > 
 .IR file ,
@@ -772,8 +876,10 @@ Redirection opens
 or
 .I command
 only once, subsequent redirections append to the already open stream.
-The argument list to print or printf can optionally be enclosed in
-parentheses.
+By convention, 
+.B mawk
+associates the filename "/dev/stderr" with stderr which allows
+print and printf to be redirected to stderr.
 .PP
 The input function
 .B getline
@@ -781,7 +887,7 @@ has the following variations.
 .RS
 .TP
 getline
-reads
+reads into
 .BR $0 ,
 updates the fields,
 .BR NF ,
@@ -790,7 +896,7 @@ and
 .BR FNR .
 .TP
 getline < \fIfile\fR
-reads
+reads into
 .B $0
 from \fIfile\fR, 
 updates the fields and
@@ -826,15 +932,18 @@ into
 .RE
 .PP
 Getline returns 0 on end-of-file, \-1 on error, otherwise 1.
-.I Command
-is executed by /bin/sh.
+.PP
+Commands on the end of pipes are executed by /bin/sh.
 .PP
 The function \fBclose\fR(\*(ex) closes the file or pipe
 associated with
 .IR expr .
-Close returns 0 or \-1 if
+Close returns 0 if
 .I expr
-is not associated with an open stream.
+is an open file,
+the exit status if
+.I expr
+is a piped command, and -1 otherwise.
 Close() is used to reread a file or command, make sure the other
 end of an output pipe is finished or conserve file resources.
 .PP
@@ -846,6 +955,11 @@ to execute
 .I expr
 and returns the exit status of the command
 .IR expr .
+Changes made to the
+.B ENVIRON
+array are not passed to commands executed with
+.B system
+or pipes.
 .SS \fB10. User defined functions
 The syntax for a user defined function is
 .nf
@@ -921,7 +1035,7 @@ and
 becomes <SPACE>.
 .B mawk
 defines <SPACE> as the regular expression
-/[\ \\t\\r\\n]+/.  
+/[\ \\t\\n]+/.  
 Otherwise
 .I sep
 is treated as a regular expression, except that meta-characters
@@ -1033,13 +1147,17 @@ set
 For compatibility with other awks, setting
 .B RS
 = "" has the same
-effect on determining records as 
+effect as if blank lines are stripped from the
+front and back of files and then records are determined as if
 .B RS
 = "\\n\\n+".
-(This interpretation makes
-.B mawk
-picky that the input not start with blank lines and that the
-last record is fully terminated with at least two newlines.)
+Posix requires that "\\n" always separates records when
+.B RS
+= "" regardless of the value of
+.BR FS .
+.B mawk 
+does not support this convention, because defining
+"\\n" as <SPACE> makes it unnecessary.
 .\"
 .PP
 Most of the time when you change
@@ -1128,9 +1246,6 @@ and if it matches, the associated
 is executed.
 An expression pattern matches if it is boolean true (see
 the end of section 2).
-A regular expression pattern matches if 
-.B $0
-matches the regular expression.
 A 
 .B BEGIN
 pattern matches before any input has been read, and
@@ -1138,11 +1253,11 @@ an
 .B END
 pattern matches after all input has been read.
 A range pattern,
-\fIpat\fR1,\|\fIpat\fR2 ,
+\fIexpr\fR1,\|\fIexpr\fR2 ,
 matches every record between the match of 
-.IR pat 1
+.IR expr 1
 and the match
-.IR pat 2
+.IR expr 2
 inclusively.
 .PP
 When end of file occurs on the input stream, the remaining
@@ -1271,36 +1386,22 @@ every record based on the first field.
 .fi
 
 .SH  "COMPATIBILITY ISSUES"
-.B mawk
-and SystemVR3 nawk (new awk)
-implement the AWK language as described in the AWK book.
-SystemVR4 nawk, with influence from GNU gawk, added a few
-features that are now specified in the draft 11.1 POSIX standard
-for awk, most notably, functions toupper() and tolower(), and
-access to the environment through an array, ENVIRON[\|].
-.PP
-With 
-.BR mawk ,
-the following are all equivalent,
-.nf
+The Posix 1003.2(draft 11.2) definition of the AWK language
+is AWK as described in the AWK book with a few extensions
+that appeared in SystemVR4 nawk. The extensions are:
 .sp
-	x ~ /a\\+b/    x ~ "a\\+b"     x ~ "a\\\\+b"
+.RS
+New functions: toupper() and tolower().
+
+New variables: ENVIRON[\|] and CONVFMT.
+
+ANSI C conversion specifications for printf() and sprintf().
+
+New command options:  \-v var=value, multiple -f options and
+implementation options as arguments to \-W.
+.RE
 .sp
-.fi
-The strings get scanned twice, once as string and once as
-regular expression.  On the string scan,
-.B mawk
-ignores the escape on non-escape characters while the AWK
-book advocates 
-.I \ec
-be recognized as 
-.I c 
-which necessitates the double escaping of meta-characters in
-strings.  For programs that must run under a variety of awks,
-the more portable but less readable, double escape
-should be used.
-.PP
-POSIX AWK is oriented to operate on files a line at 
+Posix AWK is oriented to operate on files a line at 
 a time.
 .B RS
 can be changed from "\\n" to another single character,
@@ -1321,11 +1422,9 @@ to be a regular expression.
 When "\\n" appears in records, it is treated as space, and
 .B FS
 always determines fields.
-\fBRS\fR = "" is treated the same as 
-\fBRS\fR = "\\n\\n+".
 .PP
 Removing the line at a time paradigm can make some programs
-simplier and can
+simpler and can
 often improve performance.  For example,
 redoing example 3 from above,
 .nf
@@ -1364,10 +1463,37 @@ a C program file,
 Buffering one record is needed to avoid terminating the last
 record with a space.
 .PP
+With 
+.BR mawk ,
+the following are all equivalent,
+.nf
+.sp
+	x ~ /a\\+b/    x ~ "a\\+b"     x ~ "a\\\\+b"
+.sp
+.fi
+The strings get scanned twice, once as string and once as
+regular expression.  On the string scan,
+.B mawk
+ignores the escape on non-escape characters while the AWK
+book advocates 
+.I \ec
+be recognized as 
+.I c 
+which necessitates the double escaping of meta-characters in
+strings.  
+Posix explicitly declines to define the behavior which passively
+forces programs that must run under a variety of awks to use
+the more portable but less readable, double escape.
+.PP
+Posix AWK does not recognize "/dev/stderr" or \\x hex escape
+sequences in strings.  Unlike ANSI C,
+.B mawk
+limits the number of digits that follows \\x to two.
+.PP
 Finally, here is how 
 .B mawk
 handles exceptional cases not discussed in the
-AWK book or the POSIX draft.  It is unsafe to assume 
+AWK book or the Posix draft.  It is unsafe to assume 
 consistency across awks and safe to skip to
 the next section.
 .PP
@@ -1401,17 +1527,6 @@ the fields and
 .B NF
 have their value unaltered from the last record.
 
-.SH DIAGNOSTICS
-A previously undiscussed option
-.B \-D
-causes
-.B mawk
-to
-.I dump
-to stderr an assembler like listing of
-its internal representation of the program
-which is linear byte code for a virtual stack machine.
-
 .SH SEE ALSO
 .I egrep
 (1)
@@ -1430,13 +1545,22 @@ and language reference
 that does not attempt the depth of the AWK book
 and assumes the reader may be a novice programmer.  
 The section on AWK arrays is excellent.  It also
-discusses POSIX requirements for AWK.
+discusses Posix requirements for AWK.
+
 
 .SH BUGS
 .B mawk
 cannot handle ascii NUL \\0 in the source or data files.  You
 can output NUL using printf with %c, and any other 8 bit
 character is acceptable input.
+
+.B mawk
+implements printf() and sprintf() using the C library functions,
+printf and sprintf, so full ANSI compatibility requires an ANSI
+C library.  In practice this means the h conversion qualifier may
+not be available.  Also 
+.B mawk
+inherits any bugs or limitations of the library functions.
 
 Implementors of the AWK language have shown a consistent lack
 of imagination when naming their programs.

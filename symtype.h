@@ -11,26 +11,8 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	symtype.h,v $
- * Revision 3.4.1.1  91/09/14  17:24:24  brennan
- * VERSION 1.0
- * 
- * Revision 3.4  91/08/13  06:52:14  brennan
- * VERSION .9994
- * 
- * Revision 3.3  91/06/29  09:47:34  brennan
- * Only track NR if needed
- * 
- * Revision 3.2  91/06/28  04:17:42  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:28:24  brennan
- * VERSION 0.995
- * 
- * Revision 2.2  91/05/15  12:07:43  brennan
- * dval hash table for arrays
- * 
- * Revision 2.1  91/04/08  08:24:14  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:59:37  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -56,21 +38,15 @@ unsigned char min_args, max_args ;
 
 /* string node */
 typedef  struct anode {
-struct anode *link ;
+struct anode *link , *ilink ;
 STRING *sval ;
+int     ival ;
 CELL   *cp ;
 }  ANODE ;
 
-/* double node */
-typedef struct d_anode {
-struct d_anode *dlink ;
-ANODE *ap ;
-double dval ;
-} D_ANODE ;
 
 typedef struct array {
-ANODE *link ;
-D_ANODE *dlink ;
+ANODE *link , *ilink ;
 } *ARRAY ;
 
 #define  CREATE         1
@@ -83,12 +59,23 @@ INST *PROTO(array_loop, (INST *, CELL *, CELL *) ) ;
 void PROTO(array_delete, (ARRAY, CELL *) ) ;
 CELL *PROTO(array_cat, (CELL *, int) ) ;
 void PROTO(array_free, (ARRAY) ) ;
+void PROTO(load_array, (ARRAY,int)) ;
 
 #define new_ARRAY() (ARRAY)memset(zmalloc(A_HASH_PRIME *\
                         sizeof(struct array)),\
                         0 , SIZE_T(A_HASH_PRIME*sizeof(struct array)))
 
 extern  ARRAY  Argv ;
+
+/* struct to hold the state of an array loop */
+typedef struct {
+CELL *var ;
+ARRAY  A  ;
+int index ;   /* A[index]  */
+ANODE *ptr ;
+} ALOOP_STATE ;
+
+int  PROTO( inc_aloop_state, (ALOOP_STATE*)) ;
 
 /* for parsing  (i,j) in A  */
 typedef  struct {
@@ -121,8 +108,8 @@ void  PROTO( fdump, (void) ) ;
 #define  ST_ARRAY   4 /* a void * ptr to a hash table */
 #define  ST_FIELD   5  /* a cell ptr to a field */
 #define  ST_FUNCT   6
-#define  ST_LENGTH  7  /* length is special */
-#define  ST_NR      8  /* and so is NR */
+#define  ST_NR      7  /*  NR is special */
+#define  ST_ENV     8  /* and so is ENVIRON */
 #define  ST_LOCAL_NONE  9
 #define  ST_LOCAL_VAR   10
 #define  ST_LOCAL_ARRAY 11
@@ -185,6 +172,7 @@ void PROTO(check_fcall, (FBLOCK*,int,FBLOCK*,CA_REC*,unsigned) ) ;
 unsigned  PROTO( hash, (char *) ) ;
 SYMTAB *PROTO( insert, (char *) ) ;
 SYMTAB *PROTO( find, (char *) ) ;
+char *PROTO( reverse_find, (int, PTR)) ;
 SYMTAB *PROTO( save_id, (char *) ) ;
 void    PROTO( restore_ids, (void) ) ;
 

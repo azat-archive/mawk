@@ -11,23 +11,11 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	field.h,v $
- * Revision 3.4.1.1  91/09/14  17:23:15  brennan
- * VERSION 1.0
+ * Revision 5.2  92/01/06  08:10:24  brennan
+ * set_binmode() proto for MSDOS
  * 
- * Revision 3.4  91/08/13  06:51:20  brennan
- * VERSION .9994
- * 
- * Revision 3.3  91/07/17  15:10:51  brennan
- * moved space_split() proto to here
- * 
- * Revision 3.2  91/06/28  04:16:37  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:27:24  brennan
- * VERSION 0.995
- * 
- * Revision 2.1  91/04/08  08:23:03  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:59:16  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -40,17 +28,42 @@ the GNU General Public License, version 2, 1991.
 void  PROTO( set_field0, (char *, unsigned) ) ;
 void  PROTO( split_field0, (void) ) ;
 int   PROTO( space_split, (char *, unsigned) ) ;
-void  PROTO( field_assign, (int, CELL *) ) ;
+void  PROTO( field_assign, (CELL*, CELL *) ) ;
 char *PROTO( is_string_split, (PTR , unsigned *) ) ;
-
-#define   NF            (MAX_FIELD+1)
-#define   RS            (MAX_FIELD+2)
-#define   FS            (MAX_FIELD+3)
-#define   OFMT          (MAX_FIELD+4)
-#define   NUM_FIELDS    (MAX_FIELD+5)
+void  PROTO( slow_cell_assign, (CELL*, CELL*)) ;
+CELL *PROTO( slow_field_ptr, (int)) ;
+int   PROTO( field_addr_to_index, (CELL*)) ;
+void  PROTO( set_binmode, (int)) ;
 
 
-extern  CELL  field[NUM_FIELDS] ;
+#define  NUM_PFIELDS		5
+extern  CELL  field[FBANK_SZ+NUM_PFIELDS] ;
+	/* $0, $1 ... $(MAX_SPLIT), NF, RS, RS, CONVFMT, OFMT */
+
+/* more fields if needed go here */
+extern CELL *fbank[NUM_FBANK] ; /* fbank[0] == field */
+
+/* index to CELL *  for a field */
+#define field_ptr(i) ((i)<=MAX_SPLIT?field+(i):slow_field_ptr(i))
+
+/* the pseudo fields, assignment has side effects */
+#define  NF     (field+MAX_SPLIT+1)   /* must be first */
+#define  RS     (field+MAX_SPLIT+2)
+#define  FS     (field+MAX_SPLIT+3)
+#define  CONVFMT  (field+MAX_SPLIT+4)
+#define  OFMT   (field+MAX_SPLIT+5)   /* must be last */
+
+#define  LAST_PFIELD	OFMT
+
+/* some compilers choke on (NF-field) in a case statement
+   even though it's constant so ...
+*/
+#define  NF_field    (MAX_SPLIT+1)
+#define  RS_field    (MAX_SPLIT+2) 
+#define  FS_field    (MAX_SPLIT+3) 
+#define  CONVFMT_field (MAX_SPLIT+4)
+#define  OFMT_field  (MAX_SPLIT+5) 
+
 
 extern  int  nf ; /* shadows NF */
 
@@ -59,6 +72,7 @@ extern  int  nf ; /* shadows NF */
 #define  SEP_CHAR       1
 #define  SEP_STR        2
 #define  SEP_RE         3
+#define  SEP_MLR	4
 
 typedef  struct {
 char  type ;
@@ -70,8 +84,14 @@ extern   SEPARATOR  rs_shadow  ;
 extern   CELL  fs_shadow ;
 
 
+/*  types for splitting overflow */
 
+typedef  struct spov {
+struct spov  *link ;
+STRING  *sval ;
+} SPLIT_OV ;
 
+extern  SPLIT_OV  *split_ov_list ;
 
 
 #endif   /* FIELD_H  */

@@ -12,20 +12,8 @@ the GNU General Public License, version 2, 1991.
 
 
 /*$Log:	fcall.c,v $
- * Revision 3.3.1.1  91/09/14  17:23:08  brennan
- * VERSION 1.0
- * 
- * Revision 3.3  91/08/13  06:51:13  brennan
- * VERSION .9994
- * 
- * Revision 3.2  91/06/28  04:16:32  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:27:18  brennan
- * VERSION 0.995
- * 
- * Revision 2.1  91/04/08  08:22:59  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:55:54  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -237,11 +225,11 @@ static  FCALL_REC *first_pass( p )
                 break ;
 
         case SCOPE_BEGIN :
-                p->call_start = begin_start ;
+                p->call_start = begin_code.start ;
                 break ;
 
         case SCOPE_END :
-                p->call_start = end_start ;
+                p->call_start = end_code.start ;
                 break ;
 
         case SCOPE_FUNCT :
@@ -329,11 +317,11 @@ void check_fcall( callee, call_scope, call, arg_list, line_no )
                 break ;
 
         case SCOPE_BEGIN :
-                call_start = begin_start ;
+                call_start = begin_code.start ;
                 break ;
 
         case SCOPE_END :
-                call_start = end_start ;
+                call_start = end_code.start ;
                 break ;
 
         case SCOPE_FUNCT :

@@ -1,2 +1,3 @@
 
-/return|switch/ {cnt++}  END{print cnt}
+/return|switch/ {cnt++} 
+END{print cnt}

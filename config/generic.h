@@ -12,6 +12,12 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log:	generic.h,v $
+ * Revision 4.3  91/10/29  10:48:26  brennan
+ * version 1.09
+ * 
+ * Revision 4.2  91/10/14  09:52:34  brennan
+ * added HAVE_PRINTF_HD
+ * 
  * Revision 4.1  91/09/25  11:41:23  brennan
  * VERSION 1.0
  * 
@@ -23,10 +29,16 @@ the GNU General Public License, version 2, 1991.
  * 
 */
 
-/* This is the most common and easiest case , if you satisfy the
-   following conditions link or copy this file to
+/* This is the most common and easiest case ,
+   
+   if you satisfy the
+   following generic conditions 
+   or your compiler pre defines __STDC__ != 0
+   
+   link or copy this file to
    ../config.h and make
 
+generic conditions:
    compiler does not have prototypes
    compiler has void *
 
@@ -39,6 +51,8 @@ the GNU General Public License, version 2, 1991.
    have strtod()
    have fmod()
 
+   printf and sprintf cannot handle "%hd"
+
 
    divison by zero, overflow and library domain errors do not
    cause exceptions and this is default behavior.
@@ -48,6 +62,8 @@ the GNU General Public License, version 2, 1991.
 
    You don't have to be frugal with memory, i.e. you are not
    restricted to 64K of data or something similar
+   
+   largest integer is 2^31-1 = 0x7fffffff
 
    Your OS is some flavor of Unix
 /*

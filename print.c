@@ -11,32 +11,8 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	print.c,v $
- * Revision 3.4.1.1  91/09/14  17:24:01  brennan
- * VERSION 1.0
- * 
- * Revision 3.4  91/08/13  06:51:57  brennan
- * VERSION .9994
- * 
- * Revision 3.3  91/06/28  04:17:24  brennan
- * VERSION 0.999
- * 
- * Revision 3.2  91/06/10  15:59:29  brennan
- * changes for V7
- * 
- * Revision 3.1  91/06/07  10:28:06  brennan
- * VERSION 0.995
- * 
- * Revision 2.4  91/05/28  15:18:07  brennan
- * removed STRING_BUFF back to temp_buff.string_buff
- * 
- * Revision 2.3  91/05/28  09:05:04  brennan
- * removed main_buff
- * 
- * Revision 2.2  91/04/09  12:39:23  brennan
- * added static to funct decls to satisfy STARDENT compiler
- * 
- * Revision 2.1  91/04/08  08:23:43  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:56:22  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -48,11 +24,16 @@ the GNU General Public License, version 2, 1991.
 #include "scan.h"
 #include "files.h"
 
-/*  static  functions */
 static void  PROTO( print_cell, (CELL *, FILE *) ) ;
-static void  PROTO( do_printf, (FILE *, char *, unsigned, CELL *) ) ;
-static void  PROTO( do_sprintf, (char *, unsigned, CELL *) ) ;
+static STRING* PROTO( do_printf, (FILE *, char *, unsigned, CELL *) ) ;
+static void  PROTO( arg_error, (char *, char *, char *) ) ;
+static void  PROTO( bad_conversion, (int, char *, char *)) ;
 
+
+
+/* this can be moved and enlarged  by -W sprintf=num  */
+char *sprintf_buff = string_buff ;
+char *sprintf_limit = string_buff + SPRINTF_SZ ;
 
 static void print_cell(p, fp)
   register CELL *p ;
@@ -78,7 +59,10 @@ static void print_cell(p, fp)
         break ;
 
     case C_DOUBLE :
-        fprintf(fp, string(field + OFMT)->str, p->dval) ;
+	if ( (double)(len = (int) p->dval) == p->dval )
+	    fprintf(fp, "%d", len) ;
+	else
+        fprintf(fp, string(OFMT)->str, p->dval) ;
         break ;
 
     default :
@@ -114,7 +98,7 @@ CELL *bi_print(sp)
   { p = sp - k ; /* clear k variables off the stack */
     sp = p - 1 ;
     while ( k-- > 1 ) 
-    { print_cell(p,fp) ; print_cell(bi_vars+OFS,fp) ;
+    { print_cell(p,fp) ; print_cell(OFS,fp) ;
       cell_destroy(p) ; p++ ; }
     
     print_cell(p, fp) ;  cell_destroy(p) ;
@@ -123,67 +107,307 @@ CELL *bi_print(sp)
   { sp-- ;
     print_cell( &field[0], fp )  ; }
 
-  print_cell( bi_vars + ORS , fp) ;
+  print_cell(ORS , fp) ;
   return sp ;
 }
   
-/* the contents of format are preserved */
-static void do_printf( fp, format, argcnt, cp)
+/*---------- types and defs for doing printf and sprintf----*/
+#define  PF_C		0
+#define  PF_S		1
+#define  PF_D		2   /* int conversion */
+#define  PF_LD		3   /* long int */
+#define  PF_F		4   /* float conversion */
+
+/* for switch on number of '*' and type */
+#define  AST(num,type)  (5*(num)+(type))
+
+/* some picky ANSI compilers go berserk without this */
+#if HAVE_PROTOS
+typedef int (*PRINTER)(PTR,char *,...) ;
+#else
+typedef int (*PRINTER)() ;
+#endif
+
+/*-------------------------------------------------------*/
+
+static void  arg_error( few_or_many, who, format)
+  char *few_or_many , *who, *format ;
+{
+  rt_error("too %s arguments passed to %s(\"%s\")",
+    few_or_many, who, format) ;
+}
+
+static void bad_conversion(cnt, who, format)
+  int cnt ; 
+  char *who , *format ;
+{
+  rt_error( "improper conversion(number %d) in %s(\"%s\")", 
+	     cnt, who, format ) ;
+}
+
+/* the contents of format are preserved,
+   caller does CELL cleanup 
+
+   This routine does both printf and sprintf (if fp==0)
+*/
+static STRING *do_printf( fp, format, argcnt, cp)
   FILE *fp ;
-  char *format ; unsigned argcnt ;
+  char *format ; 
   CELL *cp ;  /* ptr to an array of arguments ( on the eval stack) */
-{ register char *q ;
+  unsigned argcnt ;  /* number of args on eval stack */
+{ 
   char  save ;
-  char *p = format ;
+  char *p ;
+  register char *q = format ;
+  register char *target ;
+  int l_flag , h_flag ;  /* seen %ld or %hd  */
+  int ast_cnt ;
+  int ast[2] ;
+  long lval ;
+  int ival ;  /* caters to MSDOS */
+  int num_conversion = 0 ; /* for error messages */
+  char *who ; /*ditto*/
+  int pf_type ;  /* conversion type */
+  PRINTER printer ; /* pts at fprintf() or sprintf() */
+
+  if ( fp == (FILE *) 0 ) /* doing sprintf */
+  {
+    target = sprintf_buff ;
+    printer = (PRINTER) sprintf ;
+    who = "sprintf" ;
+  }
+  else /* doing printf */
+  {
+    target = (char *) fp ; /* will never change */
+    printer = (PRINTER) fprintf ;
+    who = "printf" ;
+  }
 
   while ( 1 )
-  { if ( ! (q = strchr(p, '%'))  )
-       if ( argcnt == 0 )
-       { fputs(p, fp) ; return ; }
-       else
-         rt_error("too many arguments in call to printf(%s)", 
-              format ) ; 
-
-    if ( * ++q == '%' )
-    { fwrite( p, SIZE_T(q-p), SIZE_T(1), fp) ; p = q+1 ; continue ; }
-
-    if ( argcnt == 0 )
-        rt_error("too few arguments in call to printf(%s)", format) ; 
-
-    if ( *q == '-' ) q++ ;
-    while ( scan_code[*(unsigned char*)q] == SC_DIGIT )  q++ ;
-    if ( *q == '.' )
-    { q++ ;
-      while ( scan_code[*(unsigned char*)q] == SC_DIGIT ) q++ ; }
-    
-    save = * ++q ;  *q = 0 ;
-    switch( q[-1] )
+  { 
+    if ( fp )
     {
-      case 'c' :  
+      while ( *q != '%' )
+	if ( *q == 0 )
+            if ( argcnt == 0 )  return (STRING *) 0 ;
+            else arg_error("many", who, format) ;
+	else
+	{ putc(*q,fp) ; q++ ; }
+    }
+    else
+    {
+      while ( *q != '%' )
+	if ( *q == 0 )
+	    if ( argcnt == 0 ) /* done */
+		if ( target > sprintf_limit ) /* damaged */
+		{
+		  /* hope this works */
+		  rt_overflow("sprintf buffer",
+			  sprintf_limit - sprintf_buff) ;
+		}
+		else  /* really done */
+		{
+		  STRING *retval ;
+		  int len = target - sprintf_buff ;
+
+		  retval = new_STRING((char*)0, len) ;
+		  (void)memcpy(retval->str, sprintf_buff, SIZE_T(len)) ;
+		  return retval ;
+		}
+            else arg_error("many", who, format) ;
+	else  *target++ = *q++ ;
+    }
+       
+
+    num_conversion++ ;
+  
+    if ( * ++q == '%' )   /* %% */
+    {
+	if ( fp )   putc(*q, fp) ; 
+	else *target++ = *q ;
+
+	q++ ; continue ;
+    }
+
+    /* mark the '%' with p */
+    p = q-1 ;
+
+    /* eat the flags */
+    while ( *q == '-' || *q == '+' || *q == ' ' ||
+            *q == '#' || *q == '0' )  q++ ;
+
+    ast_cnt = 0 ;
+    if ( *q == '*' )
+    { 
+      if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
+      ast[ast_cnt++] = (int) cp++ ->dval ;
+      argcnt-- ; q++ ;
+    }
+    else
+    while ( scan_code[*(unsigned char *)q] == SC_DIGIT )  q++ ;
+    /* width is done */
+
+    if ( *q == '.' )  /* have precision */
+    { q++ ;
+      if ( *q == '*' )
+      {
+	if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
+        ast[ast_cnt++] = (int) cp++ ->dval ;
+        argcnt-- ; q++ ;
+      }
+      else
+      while ( scan_code[*(unsigned char*)q] == SC_DIGIT ) q++ ; 
+    }
+
+    if ( argcnt <= 0 )  arg_error("few", who, format) ;
+    l_flag = h_flag = 0 ;
+
+    if ( *q == 'l' ) { q++ ; l_flag = 1 ; }
+
+#if HAVE_PRINTF_HD
+    else
+    if ( *q == 'h' ) { q++ ; h_flag = 1 ; }
+#endif
+
+    switch( *q++ )
+    {
+      case 's' :
+            if ( l_flag + h_flag ) 
+		bad_conversion(num_conversion,who,format) ;
+            if ( cp->type < C_STRING ) cast1_to_s(cp) ;
+            pf_type = PF_S ;
+            break ;
+
+      case 'c' :
+            if ( l_flag + h_flag )
+		bad_conversion(num_conversion,who,format) ;
+
+	    switch( cp->type )
+	    {
+	      case C_NOINIT :
+		    ival = 0 ;
+		    break ;
+
+	      case C_STRNUM :
+	      case C_DOUBLE :
+		    ival = (int) cp->dval ;
+		    break ;
+
+	      case  C_STRING :
+		    ival = string(cp)->str[0] ;
+		    break ;
+
+	      case  C_MBSTRN :
+		    check_strnum(cp) ;
+		    ival = cp->type == C_STRING ?
+			string(cp)->str[0] : (int) cp->dval ;
+		    break ;
+	      
+	      default :
+		    bozo("printf %c") ;
+	    }
+
+            pf_type = PF_C ;
+	    break ;
+
       case 'd' :
       case 'o' :
       case 'x' :
+      case 'X' :
+      case 'i' :
+      case 'u' :
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
-            (void) fprintf(fp, p, (int) cp->dval) ;
+            lval = (long) cp->dval ;
+#if HAVE_PRINTF_HD
+	    if ( h_flag ) lval &= 0xffff ;
+#endif
+            pf_type = l_flag ? PF_LD : PF_D ;
             break ;
+    
       case 'e' :
       case 'g' :
       case 'f' :
+      case 'E' :
+      case 'G' :
+            if ( h_flag + l_flag )
+		bad_conversion(num_conversion,who,format) ;
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
-            (void) fprintf(fp, p, cp->dval) ;
+            pf_type = PF_F ;
             break ;
-      case  's' :
-            if ( cp->type < C_STRING ) cast1_to_s(cp) ;
-            (void) fprintf(fp, p, string(cp)->str) ;
-            break ;
-      default :
-            rt_error("bad format string in call to printf(%s)",
-              format) ;
+
+      default : bad_conversion(num_conversion,who,format) ;
     }
-    *q = save ; p = q ; argcnt-- ; cp++ ;
+
+    save = *q ;
+    *q = 0 ;
+
+    /* ready to call printf() */
+    switch( AST(ast_cnt, pf_type ) )
+    {
+      case AST(0, PF_C )  :
+            (*printer)((PTR) target, p, ival) ;
+            break ;
+
+      case AST(1, PF_C ) :
+            (*printer)((PTR) target, p, ast[0], ival) ;
+            break ;
+
+      case AST(2, PF_C ) :
+            (*printer)((PTR) target, p, ast[0], ast[1], ival) ;
+            break ;
+
+      case AST(0, PF_S) :
+            (*printer)((PTR) target, p, string(cp)->str) ;
+            break ;
+
+      case AST(1, PF_S) :
+            (*printer)((PTR) target, p, ast[0],string(cp)->str) ;
+            break ;
+
+      case AST(2, PF_S) :
+            (*printer)((PTR) target, p, ast[0], ast[1], string(cp)->str) ;
+            break ;
+
+      case AST(0, PF_D) :
+            (*printer)((PTR) target, p, (int) lval) ;
+            break ;
+
+      case AST(1, PF_D) :
+            (*printer)((PTR) target, p, ast[0], (int) lval) ;
+            break ;
+
+      case AST(2, PF_D) :
+            (*printer)((PTR) target, p, ast[0], ast[1], (int) lval) ;
+            break ;
+
+      case AST(0, PF_LD) :
+            (*printer)((PTR) target, p,  lval) ;
+            break ;
+
+      case AST(1, PF_LD) :
+            (*printer)((PTR) target, p, ast[0],  lval) ;
+            break ;
+
+      case AST(2, PF_LD) :
+            (*printer)((PTR) target, p, ast[0], ast[1],  lval) ;
+            break ;
+
+      case AST(0, PF_F) :
+            (*printer)((PTR) target, p,  cp->dval) ;
+            break ;
+
+      case AST(1, PF_F) :
+            (*printer)((PTR) target, p, ast[0],  cp->dval) ;
+            break ;
+
+      case AST(2, PF_F) :
+            (*printer)((PTR) target, p, ast[0], ast[1],  cp->dval) ;
+            break ;
+    }
+    if ( fp == (FILE *) 0 ) while ( *target ) target++ ;
+    *q = save ; argcnt-- ; cp++ ;
   }
 }
-
 
 CELL *bi_printf(sp)
   register CELL *sp ;
@@ -212,92 +436,18 @@ CELL *bi_sprintf(sp)
   CELL *sp ;
 { CELL *p ;
   int argcnt = sp->type ;
-  void do_sprintf() ;
+  STRING *sval ;
 
   sp -= argcnt-- ; /* sp points at the format string */
-  if ( sp->type < C_STRING )  cast1_to_s(sp) ;
-  do_sprintf(string(sp)->str, argcnt, sp+1) ;
+  if ( sp->type != C_STRING )  cast1_to_s(sp) ;
 
+  sval = do_printf((FILE *)0, string(sp)->str, argcnt, sp+1) ;
   free_STRING(string(sp)) ;
+  sp->ptr = (PTR) sval ;
+
   for ( p = sp+1 ; argcnt-- ; p++ )  cell_destroy(p) ;
 
-  sp->ptr = (PTR) new_STRING( temp_buff.string_buff ) ;
   return sp ;
 }
 
-
-/* the contents of format are preserved */
-static void do_sprintf( format, argcnt, cp)
-  char *format ; 
-  unsigned argcnt ;
-  CELL *cp ;
-{ register char *q ;
-  char  save ;
-  char *p = format ;
-  register char *target = temp_buff.string_buff ;
-
-  temp_buff.string_buff[SPRINTF_SZ-1] = *target = 0 ;
-  while ( 1 )
-  { if ( ! (q = strchr(p, '%'))  )
-       if ( argcnt == 0 )
-       { strcpy(target, p) ; 
-         /* check the result is not too large */
-         if ( temp_buff.string_buff[SPRINTF_SZ-1] != 0 )
-         { /* This may have damaged us -- try to croak out an error
-              message and exit */
-           rt_overflow("sprintf buffer", SPRINTF_SZ) ;
-         }
-         return ; 
-       }
-       else
-         rt_error("too many arguments in call to sprintf(%s)", 
-             format ) ; 
-
-    if ( * ++q == '%' )
-    { unsigned len ;
-
-      (void) memcpy(target, p, SIZE_T(len = q-p) ) ;
-      p = q + 1 ; *(target += len) = 0 ;
-      continue ;
-    }
-
-    if ( argcnt == 0 )
-      rt_error("too few arguments in call to sprintf(%s)", format) ; 
-
-    if ( *q == '-' ) q++ ;
-    while ( scan_code[*(unsigned char*)q] == SC_DIGIT )  q++ ;
-    if ( *q == '.' )
-    { q++ ;
-      while ( scan_code[*(unsigned char*)q] == SC_DIGIT ) q++ ; }
-    
-    save = * ++q ;  *q = 0 ;
-    switch( q[-1] )
-    {
-      case 'c' :  
-      case 'd' :
-      case 'o' :
-      case 'x' :
-            if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
-            (void) sprintf(target, p, (int) cp->dval ) ;
-            target += strlen(target) ;
-            break ;
-      case 'e' :
-      case 'g' :
-      case 'f' :
-            if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
-            (void) sprintf(target, p, cp->dval ) ;
-            target += strlen(target) ;
-            break ;
-      case  's' :
-            if ( cp->type < C_STRING ) cast1_to_s(cp) ;
-            (void) sprintf(target, p, string(cp)->str ) ;
-            target += strlen(target) ;
-            break ;
-      default :
-            rt_error("bad format string in call to sprintf(%s)", 
-                format) ;
-    }
-    *q = save ; p = q ; argcnt-- ; cp++ ;
-  }
-}
 

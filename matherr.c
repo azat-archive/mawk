@@ -11,32 +11,8 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	matherr.c,v $
- * Revision 3.5.1.1  91/09/14  17:23:44  brennan
- * VERSION 1.0
- * 
- * Revision 3.5  91/08/16  11:02:09  brennan
- * Carl's addition of SW_FP_CHECK for V7 XNX23A
- * 
- * Revision 3.4  91/08/13  06:51:46  brennan
- * VERSION .9994
- * 
- * Revision 3.3  91/06/28  04:17:02  brennan
- * VERSION 0.999
- * 
- * Revision 3.2  91/06/19  10:23:49  brennan
- * changes for xenix_r2, call this version 0.997
- * 
- * Revision 3.1  91/06/07  10:27:53  brennan
- * VERSION 0.995
- * 
- * Revision 2.3  91/06/06  07:50:43  brennan
- * added infnan for libm functions on bsd43_vax
- * 
- * Revision 2.2  91/05/16  12:19:59  brennan
- * cleanup of machine dependencies
- * 
- * Revision 2.1  91/04/08  08:23:31  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:56:18  brennan
+ * 1.1 pre-release
  * 
 */
 

@@ -11,6 +11,9 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	rexp1.c,v $
+ * Revision 3.3  91/10/29  10:54:01  brennan
+ * SIZE_T
+ * 
  * Revision 3.2  91/08/13  09:10:11  brennan
  * VERSION .9994
  * 

@@ -1,3 +1,8 @@
+# This is a template for a Makefile
+# generate by running "build_mawk configuration"
+#
+# or "build_mawk mf" to generate a starting Makefile for
+# a new port
 
 # ###################################################
 # This is a makefile for mawk,
@@ -11,19 +16,18 @@ SHELL=/bin/sh
 # user settable macros
 #
 
-CC = cc
+CC = %CC%
 #CC = gcc 
 
-RANLIB = ranlib
-#RANLIB = :  # SCO
+CFLAGS =   %CFLAGS%
+
+RANLIB = %RANLIB%
+#RANLIB = :  # SCO and others who don't use it
+
+AR = %AR%
+MATHLIB = %MATHLIB%
 
 MAKE = make
-
-CFLAGS =   -O
-#CFLAGS = -O -YSYSTEM_FIVE # ultrix_vax 4.1 
-                           # (don't use -YSYSTEM_FIVE on MIPS)
-#CFLAGS = -O -YSYSTEM_FIVE -DHAVE_VOID_PTR=0 #ultrix 3.1
-#CFLAGS = -O -f68881  # sun3 with coprocessor
 
 # use your favorite yacc
 # if you don't change parse.y or parse2.xc
@@ -37,11 +41,12 @@ FIX_YTAB=cat    #  makes parse.c from y.tab.c and parse2.xc
 
 # using bison -- remove call to alloca()
 #YACC=bison -dy
-#FIX_YTAB=fix_ytab   # uncomment this with bison 1.14
-#                      read comments in fix_ytab script
-#	               if you use an earlier version of bison
+#AWK= mawk  # or gawk or nawk or awk
+#FIX_YTAB=$(AWK) -f modbison.awk 
+#		       uncomment this with bison 1.14
+#                      don't use an earlier version
 
-#installation macros
+#installation macros -- user settable targets for "make install"
 BINDIR=/usr/local/bin
 MANDIR=/usr/man/manl
 MANEXT=l
@@ -59,11 +64,11 @@ REXP_C=rexp/rexp.c rexp/rexp0.c rexp/rexp1.c rexp/rexp2.c\
 mawk_and_test :  mawk  mawk_test  fpe_test
 
 mawk : $(O)  rexp/regexp.a
-	$(CC) $(CFLAGS) -o mawk $(O) -lm rexp/regexp.a
+	$(CC) $(CFLAGS) -o mawk $(O) $(MATHLIB) rexp/regexp.a
 
 mawk_test :  mawk  # test that we have a sane mawk
 	@cp mawk test/mawk
-	cd test ; ./mawk_test 
+	cd test ; ./mawktest 
 	@rm test/mawk
 
 fpe_test :  mawk # test FPEs are handled OK
@@ -73,8 +78,9 @@ fpe_test :  mawk # test FPEs are handled OK
 	@rm test/mawk
 
 rexp/regexp.a :  $(REXP_C)
-	cd  rexp ; $(MAKE) CC="$(CC)" RANLIB=$(RANLIB)
-
+	cd  rexp ;\
+	$(MAKE) CC="$(CC)" CFLAGS="$(CFLAGS) -DMAWK" RANLIB="$(RANLIB)" \
+		AR="$(AR)"
 
 parse.c  : parse.y  parse2.xc
 	@echo  expect 4 shift/reduce conflicts
@@ -89,12 +95,16 @@ scancode.c :  makescan.c  scan.h
 	./makescan.exe > scancode.c
 	rm makescan.exe
 
+MAWKMAN = $(MANDIR)/mawk.$(MANEXT)
 install :  mawk
-	install -s mawk $(BINDIR)
-	install -c man/mawk.1 $(MANDIR)/mawk.$(MANEXT)
+	cp mawk $(BINDIR)
+	strip $(BINDIR)/mawk
+	chmod  0755  $(BINDIR)/mawk
+	cp  man/mawk.1  $(MAWKMAN)
+	chmod  0644  $(MAWKMAN)
 
 clean :
-	rm -f *.o rexp/*.o rexp/regexp.a test/mawk core test/core
+	rm -f *.o rexp/*.o rexp/regexp.a test/mawk core test/core mawk
 
 
 
@@ -103,7 +113,7 @@ array.o : bi_vars.h sizes.h zmalloc.h memory.h types.h field.h mawk.h config.h s
 bi_funct.o : fin.h bi_vars.h sizes.h memory.h zmalloc.h regexp.h types.h field.h repl.h files.h bi_funct.h mawk.h config.h symtype.h init.h config/Idefault.h
 bi_vars.o : bi_vars.h sizes.h memory.h zmalloc.h types.h field.h mawk.h config.h symtype.h config/Idefault.h init.h
 cast.o : parse.h sizes.h memory.h zmalloc.h types.h field.h scan.h repl.h mawk.h config.h symtype.h config/Idefault.h
-code.o : sizes.h memory.h zmalloc.h types.h code.h mawk.h config.h config/Idefault.h init.h
+code.o : sizes.h memory.h zmalloc.h types.h field.h code.h jmp.h mawk.h config.h symtype.h config/Idefault.h init.h
 da.o : sizes.h memory.h zmalloc.h types.h field.h repl.h code.h bi_funct.h mawk.h config.h symtype.h config/Idefault.h
 error.o : parse.h bi_vars.h sizes.h types.h scan.h mawk.h config.h symtype.h config/Idefault.h
 execute.o : bi_vars.h fin.h sizes.h memory.h zmalloc.h regexp.h types.h field.h code.h repl.h bi_funct.h mawk.h config.h symtype.h config/Idefault.h
@@ -113,9 +123,9 @@ files.o : fin.h sizes.h memory.h zmalloc.h types.h files.h mawk.h config.h confi
 fin.o : parse.h fin.h bi_vars.h sizes.h memory.h zmalloc.h types.h field.h scan.h mawk.h config.h symtype.h config/Idefault.h
 hash.o : sizes.h memory.h zmalloc.h types.h mawk.h config.h symtype.h config/Idefault.h
 init.o : bi_vars.h sizes.h memory.h zmalloc.h types.h field.h code.h mawk.h config.h symtype.h config/Idefault.h init.h
-jmp.o : sizes.h memory.h zmalloc.h types.h code.h jmp.h mawk.h config.h config/Idefault.h init.h
+jmp.o : sizes.h memory.h zmalloc.h types.h code.h mawk.h jmp.h config.h symtype.h config/Idefault.h init.h
 kw.o : parse.h sizes.h types.h mawk.h config.h symtype.h config/Idefault.h init.h
-main.o : fin.h bi_vars.h sizes.h memory.h zmalloc.h types.h field.h code.h files.h mawk.h config.h config/Idefault.h init.h
+main.o : fin.h bi_vars.h sizes.h memory.h zmalloc.h types.h field.h code.h files.h mawk.h config.h symtype.h config/Idefault.h init.h
 makescan.o : parse.h scan.h symtype.h
 matherr.o : sizes.h types.h mawk.h config.h config/Idefault.h
 memory.o : sizes.h memory.h zmalloc.h types.h mawk.h config.h config/Idefault.h

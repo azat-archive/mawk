@@ -11,32 +11,8 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	files.c,v $
- * Revision 3.4.1.1  91/09/14  17:23:17  brennan
- * VERSION 1.0
- * 
- * Revision 3.4  91/08/13  06:51:23  brennan
- * VERSION .9994
- * 
- * Revision 3.3  91/06/28  04:16:39  brennan
- * VERSION 0.999
- * 
- * Revision 3.2  91/06/10  15:59:11  brennan
- * changes for V7
- * 
- * Revision 3.1  91/06/07  10:27:27  brennan
- * VERSION 0.995
- * 
- * Revision 2.4  91/06/06  09:42:03  brennan
- * added HAVE_FCNTL
- * 
- * Revision 2.3  91/05/16  12:19:44  brennan
- * cleanup of machine dependencies
- * 
- * Revision 2.2  91/05/06  15:00:59  brennan
- * flush output before fork
- * 
- * Revision 2.1  91/04/08  08:23:05  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:56:00  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -70,15 +46,21 @@ typedef struct file {
 struct file *link ;
 STRING  *name ;
 short type ;
-#if   ! MSDOS
-#ifndef THINK_C
 int pid ;  /* we need to wait() when we close an out pipe */
-#endif
-#endif
+           /* holds temp file index under MSDOS */
 PTR   ptr ;  /* FIN*   or  FILE*   */
 }  FILE_NODE ;
 
 static FILE_NODE *file_list ;
+
+void set_stderr()
+{
+  file_list = ZMALLOC(FILE_NODE) ;
+  file_list->link = (FILE_NODE*) 0 ;
+  file_list->type = F_TRUNC ;
+  file_list->name = new_STRING("/dev/stderr") ;
+  file_list->ptr = (PTR) stderr ;
+}
 
 PTR  file_find( sval, type )
   STRING *sval ;
@@ -86,6 +68,7 @@ PTR  file_find( sval, type )
 { register FILE_NODE *p = file_list ;
   FILE_NODE *q = (FILE_NODE *) 0 ;
   char *name = sval->str ;
+  char *ostr ;
 
   while (1)
   {
@@ -95,12 +78,22 @@ PTR  file_find( sval, type )
       switch( p->type = type )
       {
         case  F_TRUNC :
-            if ( !(p->ptr = (PTR) fopen(name, "w")) )
+#if MSDOS && NO_BINMODE==0
+            ostr = (binmode()&2) ? "wb" : "w" ;
+#else
+            ostr = "w" ;
+#endif
+            if ( !(p->ptr = (PTR) fopen(name, ostr)) )
                 goto out_failure ;
             break ;
 
         case  F_APPEND :
-            if ( !(p->ptr = (PTR) fopen(name, "a")) )
+#if MSDOS && NO_BINMODE==0
+            ostr = (binmode()&2) ? "ab" : "a" ;
+#else
+            ostr = "a" ;
+#endif
+            if ( !(p->ptr = (PTR) fopen(name, ostr)) )
                 goto out_failure ;
             break ;
 
@@ -111,19 +104,17 @@ PTR  file_find( sval, type )
 
         case  PIPE_OUT :
         case  PIPE_IN :
-#if   MSDOS
-            rt_error("pipes not supported under MSDOS") ;
-#else
-#ifdef THINK_C
-            rt_error("pipes not supported on the Macintosh Toy Operating System") ;
-#else
+
+#if    HAVE_REAL_PIPES || HAVE_FAKE_PIPES 
+
             if ( !(p->ptr = get_pipe(name, type, &p->pid)) )
                 if ( type == PIPE_OUT ) goto out_failure ;
                 else
                 { zfree(p, sizeof(FILE_NODE) ) ;
                   return (PTR) 0 ;
                 }
-#endif
+#else
+         rt_error("pipes not supported") ;
 #endif
             break ;
 
@@ -135,12 +126,13 @@ PTR  file_find( sval, type )
       /* successful open */
       p->name = sval ;
       sval->ref_cnt++ ;
-      break ;
+      break ; /* while loop */
     }
 
     if ( strcmp(name, p->name->str) == 0 )
-    { 
-      if ( p->type != type )  goto type_failure ;
+    { /* no distinction between F_APPEND and F_TRUNC here */
+      if ( p->type != type && 
+           (p->type < F_APPEND || type < F_APPEND))  goto type_failure ;
       if ( !q )  /*at front of list */
           return  p->ptr ;
       /* delete from list for move to front */
@@ -171,6 +163,7 @@ int  file_close( sval )
 { register FILE_NODE *p = file_list ;
   FILE_NODE *q = (FILE_NODE *) 0 ; /* trails p */
   char *name = sval->str ;
+  int retval = 0 ;
 
   while ( p )
         if ( strcmp(name,p->name->str) == 0 ) /* found */
@@ -184,16 +177,28 @@ int  file_close( sval )
 
             case  PIPE_OUT :
                 (void) fclose((FILE *) p->ptr) ;
-#if  ! MSDOS
-#ifndef THINK_C
-                (void) wait_for(p->pid) ;
+
+#if  HAVE_REAL_PIPES
+                retval =  wait_for(p->pid) ;
 #endif
+#if  HAVE_FAKE_PIPES
+                retval = close_fake_outpipe(p->name->str,p->pid) ;
 #endif
                 break ;
 
             case F_IN  :
+                FINclose((FIN *) p->ptr) ;
+                break ;
+
             case PIPE_IN :
                 FINclose((FIN *) p->ptr) ;
+
+#if  HAVE_REAL_PIPES
+                retval = wait_for(p->pid) ;
+#endif
+#if  HAVE_FAKE_PIPES
+                (void) unlink(tmp_file_name(p->pid)) ;
+#endif
                 break ;
           }
 
@@ -202,7 +207,7 @@ int  file_close( sval )
           else  file_list = p->link ;
 
           zfree(p, sizeof(FILE_NODE)) ;
-          return 0 ;
+          return retval ;
         }
         else { q = p ; p = p->link ; }
 
@@ -212,8 +217,9 @@ int  file_close( sval )
 
 /* When we exit, we need to close and wait for all output pipes */
 
-#if   !MSDOS
-#ifndef THINK_C
+
+#if   HAVE_REAL_PIPES
+
 void close_out_pipes()
 { register FILE_NODE *p = file_list ;
 
@@ -223,14 +229,42 @@ void close_out_pipes()
     p = p->link ;
   }
 }
+
+#else
+#if  HAVE_FAKE_PIPES  /* pipes are faked with temp files */
+
+void  close_fake_pipes()
+{ register FILE_NODE *p = file_list ;
+
+  /* close input pipes first to free descriptors for children */
+  while ( p )
+  {
+    if ( p->type == PIPE_IN )
+    { FINclose((FIN *) p->ptr) ;
+      (void) unlink(tmp_file_name(p->pid)) ; 
+    }
+    p = p->link ;
+  }
+  /* doit again */
+  p = file_list ;
+  while ( p )
+  {
+    if ( p->type == PIPE_OUT )
+    {
+      (void) fclose(p->ptr) ;
+      (void) close_fake_outpipe(p->name->str,p->pid) ;
+    }
+    p = p->link ;
+  }
+}
 #endif
 #endif
 
 /* hardwire to /bin/sh for portability of programs */
 char *shell = "/bin/sh" ;
 
-#if  !  MSDOS
-#ifndef THINK_C
+#if  HAVE_REAL_PIPES
+
 PTR get_pipe( name, type, pid_ptr)
   char *name ;
   int type ;
@@ -314,7 +348,10 @@ static struct child *remove_from_child_list(pid)
     
 
 /* wait for a specific child to complete and return its 
-   exit status */
+   exit status 
+
+   If pid is zero, wait for any single child
+*/
 
 int wait_for(pid)
   int pid ;
@@ -322,10 +359,16 @@ int wait_for(pid)
   struct child *p ;
   int id ;
 
+  if ( pid == 0 )
+  {
+    id = wait(&exit_status) ;
+    add_to_child_list(id, exit_status) ;
+  }
+  else
   /* see if an earlier wait() caught our child */
   if ( p = remove_from_child_list(pid) ) 
   { exit_status = p->exit_status ;
-    zfree(p, sizeof(struct child)) ;
+    ZFREE(p) ;
   }
   else /* need to really wait */
     while ( (id = wait(&exit_status)) != pid )
@@ -336,8 +379,11 @@ int wait_for(pid)
           add_to_child_list(id, exit_status ) ;
         }
 
+  if ( exit_status & 0xff ) 
+       exit_status = 128 + (exit_status & 0xff) ;
+  else  exit_status = (exit_status & 0xff00)>>8 ;
+
   return exit_status ;
 }
         
-#endif
-#endif
+#endif  /* HAVE_REAL_PIPES */

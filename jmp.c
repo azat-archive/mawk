@@ -11,23 +11,8 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	jmp.c,v $
- * Revision 3.3.1.1  91/09/14  17:23:33  brennan
- * VERSION 1.0
- * 
- * Revision 3.3  91/08/13  06:51:38  brennan
- * VERSION .9994
- * 
- * Revision 3.2  91/06/28  04:16:53  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:27:42  brennan
- * VERSION 0.995
- * 
- * Revision 2.2  91/05/22  07:30:39  brennan
- * fixed stack underflow checks to work correctly on large model DOS
- * 
- * Revision 2.1  91/04/08  08:23:19  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:56:10  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -50,185 +35,178 @@ extern unsigned compile_error_count ;
 #define error_state  (compile_error_count>0)
 
 
-/* a stack to hold jumps that need to be patched */
+/*---------- back patching jumps  ---------------*/
 
-#define JMP_STK_SZ  (2*MAX_LOOP_DEPTH)
+typedef  struct jmp {
+struct jmp *link ;
+INST *source ;
+} JMP ;
 
-static INST **jmp_stack ; 
-static INST **jmp_sp  ;
+static JMP *jmp_top ;
 
-/*-------------------------------------*/
-/* a stack to hold break or continue that need to be
-   patched (which is all of them) */
-
-#define  BC_SZ    MAX_LOOP_DEPTH
-
-/* the stack holds a linked list of these */
-
-struct BC_node { /* struct for the break/continue list */
-char type ;   /*  'B' or 'C' */
-INST *jmp ;   /*  the jump to patch */
-struct BC_node *link ;
-} ;
-
-static   struct BC_node  **BC_stack ;
-static   struct BC_node  **BC_sp ;
-
-/*---------------------------------------*/
-/* a stack to hold some pieces of code while 
-   reorganizing loops */
-
-#define  LOOP_CODE_SZ    (2*MAX_LOOP_DEPTH)
-
-static struct loop_code {
-INST *code ;
-unsigned len ;
-}  *loop_code_stack , *lc_sp ;
-
-/*--------------------------------------*/
-void jmp_stacks_init()
-{ jmp_stack = (INST **)  zmalloc(JMP_STK_SZ*sizeof(INST*)) ;
-  jmp_sp = jmp_stack-1 ;
-
-  BC_stack = (struct BC_node **) 
-              zmalloc(BC_SZ*sizeof(struct BC_node*)) ;
-  BC_sp =  BC_stack-1 ;
-
-  loop_code_stack = (struct loop_code *)
-                    zmalloc(LOOP_CODE_SZ*sizeof(struct loop_code)) ;
-  lc_sp = loop_code_stack - 1 ;
-}
-
-void jmp_stacks_cleanup()
-{ zfree(jmp_stack, JMP_STK_SZ*sizeof(INST*)) ;
-  zfree(BC_stack, BC_SZ*sizeof(struct BC_node*)) ;
-  zfree(loop_code_stack, LOOP_CODE_SZ*sizeof(struct loop_code)) ;
-}
-/*--------------------------------------*/
-/* operations on the jmp_stack */
-
-void code_jmp( jtype, target, expr_start)
+void code_jmp( jtype, target)
   int jtype ; 
   INST *target ;
-  INST *expr_start ; /* used to recognize constant expressions,
-	   which can only be _PUSHC , <address>  */
 { 
+  register INST *source ;
+
   if (error_state)  return ;
 
-  /* check if a constant expression will be at top of stack,
-     if so replace conditional jump with jump */
+  code1(jtype) ;
+  source = code_ptr++ ;
 
-  if ( jtype != _JMP &&
-       code_ptr - 2 == expr_start &&
-       code_ptr[-2].op == _PUSHC )
-  { int t = test( (CELL *) code_ptr[-1].ptr ) ;
-    if ( jtype == _JZ && ! t ||
-         jtype == _JNZ && t )
-    { code_ptr -= 2 ; jtype = _JMP ; }
-  }
-   
-  if ( ! target ) /* jump will have to be patched later ,
-                     put it on the jmp_stack */
-  { if ( ++jmp_sp == jmp_stack + JMP_STK_SZ )
-          overflow("jmp stack" , JMP_STK_SZ ) ; 
-    *jmp_sp = code_ptr ;
-    code2(jtype, 0) ;
-  }
-  else
-  { INST *source = code_ptr ;
-  
-    code_ptr++->op = jtype ;
-    code_ptr++->op = target - source ; 
+  if ( target ) source->op = target - source ;
+  else  /* save source on jump stack */
+  {
+    register JMP *p = (JMP*) zmalloc(sizeof(JMP)) ;
+    p->source = source ;
+    p->link = jmp_top ;
+    jmp_top = p ;
   }
 }
 
 void patch_jmp(target)  /* patch a jump on the jmp_stack */
   INST *target ;
-{ register INST *source ;
+{ register JMP *p ;
 
   if ( ! error_state )
   {
-    if ( jmp_sp+1 <= jmp_stack ) bozo("jmp stack underflow") ;
-    source = *jmp_sp-- ;
-    source[1].op = target - source ;
+#ifdef  DEBUG
+    if (!jmp_top) bozo("jmp stack underflow") ;
+#endif
+
+    p = jmp_top ; jmp_top = p->link ;
+
+    p->source->op = target - p->source ;
+
+    zfree(p, sizeof(JMP)) ;
   }
 }
 
 
-/*---------------------------*/
+/*-- break and continue -------*/
 
-/* a stack of linked lists of BC_nodes for patching 
-   break and continue statements.  */
+typedef struct bc {
+struct bc *link ;  /* stack as linked list */
+int type ;         /* 'B' or 'C' or mark start with 0 */
+INST *source ;     /* position of _JMP  */
+} BC ;
+
+static BC *bc_top ;  
 
 
-void BC_new()  /* push an empty list on the stack */
+
+void BC_new()  /* mark the start of a loop */
 { 
-  if ( ! error_state )
-  { if ( ++BC_sp == BC_stack + BC_SZ ) overflow("BC stack", BC_SZ) ;
-    * BC_sp = (struct BC_node *) 0 ;
-  }
+  BC_insert(0, (INST*) 0 ) ;  
 }
 
 void BC_insert(type, address)
   int type ; INST *address ;
-{ register struct BC_node *p ; 
+{ register BC * p  ;
 
   if ( error_state )  return ;
-  if ( BC_sp <= BC_stack - 1 )
-  {  compile_error(  type == 'B' ?
-        "break statement outside of loop" :
-        "continue statement outside of loop" ) ; 
-     return ;
+
+  if ( type && ! bc_top )
+  {
+    compile_error("%s statement outside of loop",
+      type == 'B' ? "break" : "continue" ) ;
+    
+    return ;
   }
-  
-  p = (struct BC_node *) zmalloc( sizeof(struct BC_node) ) ;
-  p->type = type ; p->jmp = address ;
-  p->link = *BC_sp ; *BC_sp = p ;
+  else
+  {
+    p = (BC*) zmalloc(sizeof(BC)) ;
+    p->type = type ;
+    p->source = address ;
+    p->link = bc_top ;
+    bc_top = p ;
+  }
 }
+
 
 void BC_clear(B_address, C_address)  
-/* patch all break and continues on list */
+/* patch all break and continues for one loop */
 INST *B_address, *C_address ;
-{ register struct BC_node *p , *q ;
+{ register  BC *p , *q ;
 
   if (error_state) return ;
-  if ( BC_sp+1 <= BC_stack ) bozo("underflow on BC stack") ;
-  p = *BC_sp-- ;
-  while ( p )
-  { p->jmp[1].op = (p->type=='B' ? B_address : C_address) - p->jmp ;
-    q = p ; p = p->link ; zfree(q, sizeof(struct BC_node)) ;
+
+  p = bc_top ;
+  /* pop down to the mark node */
+  while ( p->type )
+  {
+    p->source->op = (p->type == 'B' ? B_address : C_address)
+		      - p->source ;
+
+    q = p ; p = p->link ; zfree(q, sizeof(BC)) ;
+  }
+  /* remove the mark node */
+  bc_top = p->link ;
+  zfree(p, sizeof(BC)) ;
+}
+
+/*-----  moving code --------------------------*/
+
+/* a stack to hold some pieces of code while 
+   reorganizing loops .
+   This used to be used on all loops.  Now it is used
+   only for the 3rd expression on a for loop and
+   for the fist part of a range pattern
+*/
+
+typedef  struct mc {  /* mc -- move code */
+struct mc *link ;
+INST *code ;
+unsigned len ;
+}  MC ;
+
+static MC *mc_top ;
+
+
+void code_push( code, len)
+  INST *code ; unsigned len ;
+{ 
+  register MC *p ;
+
+  if (! error_state ) 
+  {
+    p = (MC*) zmalloc(sizeof(MC)) ;
+    p->len = len ;
+    p->link = mc_top ;
+    mc_top = p ;
+
+    if ( len )
+    {
+      p->code = (INST*) zmalloc(sizeof(INST)*len) ;
+      (void) memcpy(p->code, code, SIZE_T(sizeof(INST)*len)) ;
+    }
   }
 }
 
-/*---------------------------------------------*/
-/*  save and restore some code for reorganizing
-    loops on a stack */
-
-
-void code_push( p, len)
-  INST *p ; unsigned len ;
-{ 
-  if (error_state) return ;
-  if ( ++lc_sp == loop_code_stack + LOOP_CODE_SZ )
-        overflow("loop_code_stack" , LOOP_CODE_SZ) ;
-
-  if ( len )
-  { lc_sp->code = (INST *) zmalloc(sizeof(INST) * len) ;
-    (void) memcpy(lc_sp->code, p, SIZE_T(sizeof(INST) * len)) ; }
-  else  lc_sp->code = (INST *) 0 ;
-  lc_sp->len = len ;
-}
-
-/* copy the code at the top of the loop code stack to target.
-   return the number of bytes moved */
+/* copy the code at the top of the mc stack to target.
+   return the number of INSTs moved */
 
 unsigned code_pop(target) 
   INST *target ;
 { 
+  register MC *p ;
+  unsigned retval ;
+
   if (error_state)  return 0 ;
-  if ( lc_sp+1 <= loop_code_stack )  bozo("loop code stack underflow") ;
-  if ( lc_sp->len )
-  { (void) memcpy(target, lc_sp->code, SIZE_T(lc_sp->len * sizeof(INST))) ;
-    zfree(lc_sp->code, sizeof(INST)*lc_sp->len) ; }
-  return lc_sp-- -> len ;
+
+#ifdef  DEBUG
+  if ( ! mc_top ) bozo("mc underflow") ;
+#endif
+
+  p = mc_top ; mc_top = p->link ;
+  
+  if ( retval = p->len )
+  {
+    (void) memcpy(target, p->code, SIZE_T(p->len*sizeof(INST))) ;
+    zfree(p->code, p->len*sizeof(INST)) ; 
+  }
+
+  zfree(p, sizeof(MC)) ;
+  return retval ;
 }

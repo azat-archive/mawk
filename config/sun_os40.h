@@ -12,6 +12,9 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log:	sun_os40.h,v $
+ * Revision 4.2  91/11/17  12:34:11  brennan
+ * added a declaration for sprintf()
+ * 
  * Revision 4.1  91/09/25  11:41:35  brennan
  * VERSION 1.0
  * 
@@ -53,6 +56,8 @@ the GNU General Public License, version 2, 1991.
 
 
 #define  STRTOD_UNDERFLOW_ON_ZERO_BUG  1
+
+extern char *sprintf() ;  /* missing in /usr/include/*.h */
 
 
 #include "config/Idefault.h"

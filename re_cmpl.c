@@ -11,29 +11,8 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	re_cmpl.c,v $
- * Revision 3.3.1.1  91/09/14  17:24:04  brennan
- * VERSION 1.0
- * 
- * Revision 3.3  91/08/13  06:51:59  brennan
- * VERSION .9994
- * 
- * Revision 3.2  91/06/28  04:17:26  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:28:09  brennan
- * VERSION 0.995
- * 
- * Revision 2.4  91/06/05  07:20:33  brennan
- * better error messages when regular expression compiles fail
- * 
- * Revision 2.3  91/06/04  06:47:07  brennan
- * removed <string.h>
- * 
- * Revision 2.2  91/05/28  09:05:07  brennan
- * removed main_buff
- * 
- * Revision 2.1  91/04/08  08:23:45  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:56:25  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -45,6 +24,7 @@ the GNU General Public License, version 2, 1991.
 #include "scan.h"
 #include "regexp.h"
 #include "repl.h"
+
 
 static  CELL *PROTO( REPL_compile, (STRING *) ) ;
 
@@ -82,12 +62,12 @@ PTR re_compile( sval )
 
   sval->ref_cnt++ ;
   if( !(p->re = REcompile(s)) )
-	if ( mawk_state == EXECUTION )
-	    rt_error(efmt, REerrlist[REerrno] , s) ;
-	else /* compiling */
-	{ compile_error(efmt, REerrlist[REerrno] , s) ;
-	  return (PTR) 0 ;
-	}
+        if ( mawk_state == EXECUTION )
+            rt_error(efmt, REerrlist[REerrno] , s) ;
+        else /* compiling */
+        { compile_error(efmt, REerrlist[REerrno] , s) ;
+          return (PTR) 0 ;
+        }
 
 
 found :
@@ -106,6 +86,8 @@ _return :
 
 /* this is only used by da() */
 
+#if  ! SM_DOS
+
 char *re_uncompile( m )
   PTR  m ;
 { register RE_NODE *p ;
@@ -116,6 +98,7 @@ char *re_uncompile( m )
   bozo("non compiled machine") ;
 #endif
 }
+#endif /* not SM_DOS */
   
 
 
@@ -150,10 +133,10 @@ static CELL *REPL_compile( sval )
                 /* if empty we don't need to make a node */
                 if ( q != xbuff )
                 { *q = 0 ;
-                  temp_buff.ptr_buff[i++] = (PTR) new_STRING(xbuff) ;
+                  split_buff[i++] = new_STRING(xbuff) ;
                 }
                 /* and a null node for the '&'  */
-                temp_buff.ptr_buff[i++] = (PTR) 0  ;
+                split_buff[i++] = (STRING *) 0  ;
                 /*  reset  */
                 p++ ;  q = xbuff ;
                 continue ;
@@ -168,7 +151,7 @@ static CELL *REPL_compile( sval )
 done :   
   /* if we have one empty string it will get made now */
   if ( q > xbuff || i == 0 )
-          temp_buff.ptr_buff[i++] = (PTR) new_STRING(xbuff) ;
+          split_buff[i++] =  new_STRING(xbuff) ;
 
   /* This will never happen */
   if ( i > MAX_SPLIT )
@@ -178,7 +161,7 @@ done :
   if ( i == 1 )
   {
     cp->type = C_REPL ;
-    cp->ptr = temp_buff.ptr_buff[0] ;
+    cp->ptr = (PTR) split_buff[0] ;
   }
   else
   {
@@ -186,7 +169,7 @@ done :
                   (cp->ptr = zmalloc(sizeof(STRING *)*i)) ;
     int j = 0 ;
 
-    while ( j < i ) *sp++ = (STRING *)temp_buff.ptr_buff[j++] ;
+    while ( j < i ) *sp++ = split_buff[j++] ;
 
     cp->type = C_REPLV ;
     cp->vcnt = i ;
@@ -286,6 +269,8 @@ found :
 /* return the string for a CELL or type REPL or REPLV,
    this is only used by da()  */
 
+#if  ! SM_DOS
+
 char *repl_uncompile( cp )
   CELL *cp ;
 {
@@ -303,8 +288,11 @@ char *repl_uncompile( cp )
            == 0  )   return  p->sval->str ;
       else  p = p->link ;
 
+#if  DEBUG
   bozo("unable to uncompile an repl") ;
+#endif
 }
+#endif /* ! SM_DOS */
 
 /*
   convert a C_REPLV to  C_REPL

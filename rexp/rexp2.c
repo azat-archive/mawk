@@ -11,6 +11,12 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	rexp2.c,v $
+ * Revision 3.7  92/01/21  17:33:15  brennan
+ * added some casts so that character classes work with signed chars
+ * 
+ * Revision 3.6  91/10/29  10:54:03  brennan
+ * SIZE_T
+ * 
  * Revision 3.5  91/08/13  09:10:15  brennan
  * VERSION .9994
  * 
@@ -48,8 +54,6 @@ the GNU General Public License, version 2, 1991.
 /* statics */
 static RT_STATE *PROTO(slow_push,(RT_STATE *,STATE*,char*,int)); 
 
-/*  check that a bit is on  */
-#define  ison(b,x) ( (b)[(x)>>3] & ( 1 << ((x)&7)  ))
 
 
 RT_STATE *RE_run_stack_base; 

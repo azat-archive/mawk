@@ -11,17 +11,8 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	makescan.c,v $
- * Revision 3.2.1.1  91/09/14  17:23:42  brennan
- * VERSION 1.0
- * 
- * Revision 3.2  91/06/28  04:17:00  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:27:51  brennan
- * VERSION 0.995
- * 
- * Revision 2.1  91/04/08  08:23:29  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:56:16  brennan
+ * 1.1 pre-release
  * 
 */
 

@@ -3,27 +3,12 @@ The port of mawk to the Mac is the work of an anonymous
 reviewer for comp.sources.reviewed.
 
 The parse.c and parse.h provided in the distribution won't
-work because the data exceeds 32K, so you need to obtain 
-a copy of bison1.14 which is easy because the source is
-free software from the FSF GNU project.  (Anonymous ftp
-from prep.ai.mit.edu or any of the numerous archives that
-have GNU software).
+work because the data exceeds 32K, so you need to make
+parse.c with a different yacc parser.  Options and how
+to do it are in the unix Makefile.
 
-The changes needed to use bison are documented in the
-Makefile.
+(The parse.c in 1.1 might work as the data is smaller.  I
+don't have access to MAC.  Feedback on this is welcome.)
+
 
 system() and pipes are missing from MacMAWK.
-
-
-added 9/30/91:
-
-  This port is currently untested because I removed the 
-  reviewer's method of modifying byacc output, because if
-  bison works it will be simplier, and he is currently unable
-  to test it.
-
-  The reviewer's system:
-
-     Macintosh SE/30 System 6.0.7
-     Lightspeed Think C, version 4.0
-  

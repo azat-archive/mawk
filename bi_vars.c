@@ -11,26 +11,8 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	bi_vars.c,v $
- * Revision 3.4.1.1  91/09/14  17:22:45  brennan
- * VERSION 1.0
- * 
- * Revision 3.4  91/08/13  06:50:52  brennan
- * VERSION .9994
- * 
- * Revision 3.3  91/06/29  09:46:53  brennan
- * Only track NR if needed
- * 
- * Revision 3.2  91/06/28  04:16:08  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:26:56  brennan
- * VERSION 0.995
- * 
- * Revision 2.2  91/05/29  14:24:51  brennan
- * -V option for version
- * 
- * Revision 2.1  91/04/08  08:22:22  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:55:38  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -59,6 +41,9 @@ static char *bi_var_names[NUM_BI_VAR] = {
 "RLENGTH" ,
 "RSTART" ,
 "SUBSEP"
+#if MSDOS  && NO_BINMODE==0
+, "BINMODE"
+#endif
 } ;
 
 /* insert the builtin vars in the hash table */
@@ -75,27 +60,27 @@ void  bi_vars_init()
     /* bi_vars[i].type = 0 which is C_NOINIT */
   }
 
+  s = insert("ENVIRON") ;
+  s->type = ST_ENV ;
+
   /* set defaults */
 
-  bi_vars[FILENAME].type = C_STRING ;
-  bi_vars[FILENAME].ptr = (PTR) new_STRING( "" ) ; 
+  FILENAME->type = C_STRING ;
+  FILENAME->ptr = (PTR) new_STRING( "" ) ; 
 
-  bi_vars[ OFS ].type = C_STRING ;
-  bi_vars[OFS].ptr = (PTR) new_STRING( " " ) ;
+  OFS->type = C_STRING ;
+  OFS->ptr = (PTR) new_STRING( " " ) ;
   
-  bi_vars[ ORS ].type = C_STRING ;
-  bi_vars[ORS].ptr = (PTR) new_STRING( "\n" ) ;
+  ORS->type = C_STRING ;
+  ORS->ptr = (PTR) new_STRING( "\n" ) ;
 
-  bi_vars[ SUBSEP ].type = C_STRING ;
-  bi_vars[SUBSEP].ptr =  (PTR) new_STRING( "\034" ) ;
+  SUBSEP->type = C_STRING ;
+  SUBSEP->ptr =  (PTR) new_STRING( "\034" ) ;
 
-  bi_vars[NR].type = bi_vars[FNR].type = C_DOUBLE ;
+  NR->type = FNR->type = C_DOUBLE ;
   /* dval is already 0.0 */
 
-  cell_zero.type = C_DOUBLE ;
-  cell_one.type = C_DOUBLE ;
-  cell_one.dval = 1.0 ;
+#if  MSDOS  && NO_BINMODE==0
+  BINMODE->type = C_DOUBLE ;
+#endif
 }
-
-CELL cell_zero ;
-CELL cell_one ;

@@ -1,5 +1,4 @@
 
-
 Carl Mascott ported mawk to V7 and in the process rooted out
 some subtle (and not so subtle) bugs.
 
@@ -8,9 +7,16 @@ attempts to get fpe exception trapping off.
 
 An anonymous reviewer for comp.sources.reviewed did the
 MSC and Mac ports and wrote .bat files for the tests.
-(Everything in msdos/dostest is his/her work).
 Another or maybe the same reviewer did the Dynix port.
 
 Layne Lommen ported mawk to the ApolloSR10.3.
 
+Ed Ferguson ported mawk to MIPS M2000 	C 2.20 (4.52).
 
+Jwahar R. Bammi ported mawk to AtariST.
+
+The DOS version is a lot better thanks to suggestions and testing
+from Ed Ferguson, Jack Fitts, Nadav Horesh and Michael Golan.
+
+Arnold Robbins kept me current on POSIX standards for AWK, and
+explained some of the "dark corners".

@@ -16,11 +16,13 @@ Carl Mascott (cmascott@world.std.com)
 */
 
 /*$Log:	V7.h,v $
+ * Revision 4.2  91/11/21  13:30:34  brennan
+ *    
+ * 
+ * 11/17/91  C. Mascott		declare fprintf, sprintf on V7
+ *
  * Revision 4.1  91/09/25  11:40:41  brennan
  * VERSION 1.0
- * 
- * Revision 1.5  91/09/12  16:11:10  brennan
- * *** empty log message ***
  * 
  * Revision 1.4  91/08/16  08:22:09  brennan
  * Carl's addition of SW_FP_CHECK for XNX23A
@@ -71,6 +73,9 @@ Carl Mascott (cmascott@world.std.com)
 #endif
 
 
+/* these are missing and print.c needs them */
+void fprintf() ;
+char *sprintf() ;
 
 #include  "config/Idefault.h"
 #endif  /* CONFIG_H */

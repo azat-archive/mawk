@@ -12,8 +12,20 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log:	Idefault.h,v $
- * Revision 3.7.1.1  91/09/25  12:59:16  brennan
- * VERSION 1.0
+ * Revision 3.12  91/11/16  15:37:29  brennan
+ * add NO_BINMODE
+ * 
+ * Revision 3.11  91/10/29  10:48:40  brennan
+ * version 1.09
+ * 
+ * Revision 3.10  91/10/23  10:46:34  brennan
+ * MSDOS LM and SM
+ * 
+ * Revision 3.9  91/10/14  09:52:48  brennan
+ * added HAVE_PRINTF_HD
+ * 
+ * Revision 3.8  91/09/30  08:11:22  brennan
+ * added MAX__INT
  * 
  * Revision 3.7  91/08/16  08:49:51  brennan
  * Carl's addition of SW_FP_CHECK for XNX23A
@@ -51,6 +63,7 @@ the GNU General Public License, version 2, 1991.
    uses <varargs.h>
 
    fpe_traps default to off
+   and nan comparison is done correctly
 
    memory is not small
 
@@ -120,7 +133,26 @@ the GNU General Public License, version 2, 1991.
 #define  HAVE_FCNTL_H		1
 #endif
 
+/* printf and sprintf don't recognize "%hd" */
+#ifndef  HAVE_PRINTF_HD
+#define  HAVE_PRINTF_HD		0
+#endif
+
+/* have pipes */
+#ifndef  HAVE_REAL_PIPES
+#define  HAVE_REAL_PIPES	1
+#endif
+
+#ifndef  HAVE_FAKE_PIPES	
+#define  HAVE_FAKE_PIPES	0
+#endif
+
 /*------------- machine ------------------------*/
+
+/* ints are 32bits, two complement */
+#ifndef  MAX__INT     
+#define  MAX__INT	0x7fffffff
+#endif
 
 /* default is IEEE754 and data space is not scarce */
 
@@ -137,6 +169,7 @@ the GNU General Public License, version 2, 1991.
 #define  NOINFO_SIGFPE          0 /* make sure no one does
 				     something stupid */
 #endif
+
 
 #if      NOINFO_SIGFPE
 #define  CHECK_DIVZERO(x)	if( (x) == 0.0 )rt_error(dz_msg);else
@@ -192,15 +225,49 @@ the GNU General Public License, version 2, 1991.
 
 #define  STDC_MATHERR	((SW_FP_CHECK || FPE_TRAPS_ON) && HAVE_MATHERR==0)
 
-#ifndef  MSDOS
-#define  MSDOS		0
-#endif
+/*-------------------MSDOS---------------------------------*/
 
-#if	MSDOS
+#ifdef	MSDOS
+
 #ifndef  HAVE_REARGV
 #define  HAVE_REARGV	0
 #endif
+
+#undef   MAX__INT
+#define  MAX__INT	0x7fff
+
+#if  HAVE_SMALL_MEMORY==0
+#define  LM_DOS		1
+#else
+#define  LM_DOS		0
 #endif
+
+#define   SM_DOS	(!LM_DOS)
+
+#undef  HAVE_REAL_PIPES
+#define HAVE_REAL_PIPES		0
+#undef  HAVE_FAKE_PIPES
+#define HAVE_FAKE_PIPES		1
+
+#if  SM_DOS 
+#ifdef  NO_BINMODE
+#undef  NO_BINMODE
+#define NO_BINMODE	1   /* hopefully no one needs this */
+#else
+#define NO_BINMODE	0
+#endif
+#else 
+#define NO_BINMODE	0
+#endif /* SM_DOS */
+
+#else /* not defined MSDOS */
+#define   MSDOS		0
+#define   LM_DOS	0
+#define   SM_DOS	0
+
+#endif /* MSDOS */
+
+/*----------------------------------------------------------*/
 
 
 #if  HAVE_PROTOS

@@ -12,35 +12,8 @@ the GNU General Public License, version 2, 1991.
 
 
 /*   $Log:	cast.c,v $
- * Revision 3.4.1.1  91/09/14  17:22:49  brennan
- * VERSION 1.0
- * 
- * Revision 3.4  91/08/16  10:32:08  brennan
- * SW_FP_CHECK for V7 XNX23A
- * 
- * Revision 3.3  91/08/13  06:50:56  brennan
- * VERSION .9994
- * 
- * Revision 3.2  91/06/28  04:16:12  brennan
- * VERSION 0.999
- * 
- * Revision 3.1  91/06/07  10:27:00  brennan
- * VERSION 0.995
- * 
- * Revision 2.5  91/06/04  06:42:57  brennan
- * removed <string.h>
- * 
- * Revision 2.4  91/05/28  15:17:32  brennan
- * removed STRING_BUFF back to temp_buff.string_buff
- * 
- * Revision 2.3  91/05/28  09:04:27  brennan
- * removed main_buff
- * 
- * Revision 2.2  91/05/16  12:19:31  brennan
- * cleanup of machine dependencies
- * 
- * Revision 2.1  91/04/08  08:22:44  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:55:41  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -155,7 +128,8 @@ two:   cp++ ;
 
 void cast1_to_s( cp )
   register CELL *cp ;
-{ 
+{ register int ival ;
+
   switch( cp->type )
   { case C_NOINIT :  
         null_str.ref_cnt++ ;
@@ -163,10 +137,14 @@ void cast1_to_s( cp )
         break ;
 
     case C_DOUBLE  :
-        (void) sprintf(temp_buff.string_buff ,
-            string(field+OFMT)->str, cp->dval) ;
+	
+	if ( (double) (ival = (int) cp->dval) == cp->dval )
+	    (void) sprintf(string_buff, "%d", ival) ;
+	else
+            (void) sprintf(string_buff ,
+            string(CONVFMT)->str, cp->dval) ;
 
-        cp->ptr = (PTR) new_STRING(temp_buff.string_buff) ;
+        cp->ptr = (PTR) new_STRING(string_buff) ;
         break ;
 
     case C_STRING :  return ;
@@ -181,7 +159,7 @@ void cast1_to_s( cp )
 
 void cast2_to_s( cp )
   register CELL *cp ;
-{ 
+{ register int ival ;
 
   switch( cp->type )
   { case C_NOINIT : 
@@ -190,10 +168,13 @@ void cast2_to_s( cp )
         break ;
 
     case C_DOUBLE  :
-        (void) sprintf(temp_buff.string_buff,
-            string(field+OFMT)->str, cp->dval ) ;
+	if ( (double) (ival = (int) cp->dval) == cp->dval )
+	    (void) sprintf(string_buff, "%d", ival) ;
+	else
+            (void) sprintf(string_buff ,
+            string(CONVFMT)->str, cp->dval) ;
 
-        cp->ptr = (PTR) new_STRING(temp_buff.string_buff) ;
+        cp->ptr = (PTR) new_STRING(string_buff) ;
         break ;
 
     case C_STRING :  goto two ;
@@ -215,10 +196,13 @@ two:
         break ;
 
     case C_DOUBLE  :
-        (void) sprintf(temp_buff.string_buff,
-            string(field+OFMT)->str, cp->dval) ;
+	if ( (double) (ival = (int) cp->dval) == cp->dval )
+	    (void) sprintf(string_buff, "%d", ival) ;
+	else
+            (void) sprintf(string_buff ,
+            string(CONVFMT)->str, cp->dval) ;
 
-        cp->ptr = (PTR) new_STRING(temp_buff.string_buff) ;
+        cp->ptr = (PTR) new_STRING(string_buff) ;
         break ;
 
     case C_STRING :  return ;
@@ -315,7 +299,9 @@ void check_strnum( cp )
              cp->dval = strtod((char *)s, &test) ;
 #endif
 
-             if ((char *) q == test )  cp->type = C_STRNUM ;
+             if ((char *) q <= test )  cp->type = C_STRNUM ;
+	     /*  <= instead of == , for some buggy strtod
+		 e.g. Apple Unix */
   }
 }
 
@@ -335,29 +321,49 @@ void cast_to_REPL( cp )
 
 #if   HAVE_STRTOD==0
 
-static char d_str[] =
-"^[ \t]*[-+]?([0-9]+\\.?|\\.[0-9])[0-9]*([eE][-+]?[0-9]+)?" ;
+/* don't use this unless you really don't have strtod() because
+   (1) its probably slower than your real strtod()
+   (2) atof() may call the real strtod() 
+*/
 
-static PTR d_ptr ;
-
-void strtod_init()
-{ STRING *sval = new_STRING(d_str) ;
-
-  d_ptr = re_compile(sval) ;
-  free_STRING(sval) ;
-}
-
-double strtod( s, endptr)
+double strtod(s, endptr)
   char *s , **endptr ;
-{ double atof() ;
+{
+  register unsigned char *p ; 
+  int flag ;
+  double atof() ;
 
   if ( endptr )
-  { unsigned len ;
+  {
+    p = (unsigned char*) s ;
 
-    (void) REmatch(s, d_ptr, &len) ;
-    *endptr = s + len ;
+    flag = 0 ;
+    while ( *p == ' ' || *p == '\t' ) p++ ;
+    if ( *p == '-' || *p == '+' ) p++ ;
+    while ( scan_code[*p] == SC_DIGIT ) { flag++ ; p++ ; }
+    if ( *p == '.' )
+    {
+      p++ ;
+      while ( scan_code[*p] == SC_DIGIT ) { flag++ ; p++ ; }
+    }
+    /* done with number part */
+    if ( flag == 0 )
+    { /* no number part */
+      *endptr = s ; return 0.0 ; 
+    }
+    else *endptr = (char *) p ;
+
+    /* now look for exponent */
+    if ( *p == 'e' || *p == 'E' )
+    {
+      flag = 0 ;
+      p++ ;
+      if ( *p == '-' || *p == '+' ) p++ ;
+      while ( scan_code[*p] == SC_DIGIT ) { flag++ ; p++ ; }
+      if ( flag ) *endptr = (char *) p ;
+    }
   }
-  return  atof(s) ;
+  return atof(s) ;
 }
 #endif  /* HAVE_STRTOD==0 */
 
@@ -373,7 +379,8 @@ double  fmod(x, y)
   clrerr();
   dtmp = x / y;
   fpcheck();
-  return modf(dtmp, &ipart) * y ;
+  (void) modf(dtmp, &ipart) ;
+  return x - ipart*y ;
 }
 
 #else
@@ -383,7 +390,8 @@ double  fmod(x, y)
 { double modf() ;
   double ipart ;
 
-  return modf(x/y, &ipart) * y ;
+  (void) modf(x/y, &ipart) ;
+  return x - ipart*y ;
 }
 
 #endif

@@ -12,26 +12,8 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log:	scan.h,v $
- * Revision 3.4.1.1  91/09/14  17:24:16  brennan
- * VERSION 1.0
- * 
- * Revision 3.4  91/08/13  06:52:08  brennan
- * VERSION .9994
- * 
- * Revision 3.3  91/06/28  04:17:35  brennan
- * VERSION 0.999
- * 
- * Revision 3.2  91/06/10  15:59:36  brennan
- * changes for V7
- * 
- * Revision 3.1  91/06/07  10:28:19  brennan
- * VERSION 0.995
- * 
- * Revision 2.2  91/04/09  12:39:31  brennan
- * added static to funct decls to satisfy STARDENT compiler
- * 
- * Revision 2.1  91/04/08  08:23:54  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:59:33  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -92,7 +74,7 @@ extern  char scan_code[256] ;
 
 /* global functions in scan.c */
 
-void  PROTO(scan_init, (int, char *) ) ;
+void  PROTO(scan_init,  (char *) ) ;
 void  PROTO(scan_cleanup, (void) ) ;
 void  PROTO(eat_nl, (void) ) ;
 int   PROTO(yylex, (void) ) ;
@@ -104,8 +86,6 @@ extern  YYSTYPE  yylval ;
 
 #define  next() (*buffp ? *buffp++ : slow_next())
 #define  un_next()  buffp--
-
-#define  ifnext(c,x,y) (next()==(c)?(x):(un_next(),(int)(y)))
 
 #define  test1_ret(c,x,d)  if ( next() == (c) ) ct_ret(x) ;\
                            else { un_next() ; ct_ret(d) ; }

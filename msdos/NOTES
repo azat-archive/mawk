@@ -1,33 +1,83 @@
 
-Notes for MsDOS
+Notes for MsDOS (mawk 1.1)
 ---------------
 
-For a number of reasons, entering a mawk program on the command line 
-using command.com as your shell is an exercise in futility, so under 
-MsDOS the command syntax is 
+command.com doesn't understand ' so if you use command.com as your
+shell (the norm under DOS) then on the command line (and NOT from
+files) the meanings of " and ' are reversed.
 
-	mawk [-Fs] optional_list_of_files
+	mawk "{ print 'hello world' }"
 
-You'll get a prompt, and then type in the program.  The -f option works 
-as before.  
+If this seems too weird, use
+
+	mawk -f con
+	{ print "hello world" }
+	^Z
 
 If you use a DOS shell that gives you a Unix style command line, to use 
 it you'll need to provide a C function reargv() that retrieves argc and 
 argv[] from your shell.
 
-Some features are missing from the DOS version of mawk: No system(), and
-no input or output pipes.  To provide a hook to stderr, I've added 
+To enable system and pipes you need to tell mawk about your shell by
+setting the environment variable MAWKSHELL.  E.g, with command.com
 
-	errmsg( "string" )
+      set MAWKSHELL=c:\sys\command.com /c
 
-which prints "string\n" to stderr which will be the console and only the
-console under command.com.  A better solution would be to associate a 
-file with handle 2, so print and printf would be available.  Consider 
-the errmsg() feature as temporary.  
+or with a unix like shell
+
+      set MAWKSHELL=c:\bin\sh.exe -c
+
+in your autoexec.bat.  The full path with drive and extension and
+appropriate switch is required.  (Small model is a tight squeeze
+and there's not enought room for PATH searching code.)
+
+If you want to use a ram disk for the pipes, set MAWKTMPDIR.
+
+      set MAWKTMPDIR=d:\
+
+The trailing backslash is required.  You have to set MAWKSHELL,
+MAWKTMPDIR is optional -- defaulting to the current directory.
 
 For compatibility with Unix, CR are silently stripped from input and LF 
-silently become CRLF on output.  
+silently become CRLF on output.  Also ^Z indicates EOF on input (
+evidently for compatibility with CPM!!!).
 
+CR control can be turned off, with a new variable BINMODE.
+BINMODE defaults to 0.
+
+     BINMODE = 1 gives binary input.
+     BINMODE = 2 gives binary output.
+     BINMODE = 3 gives both.
+
+Setting BINMODE with -v or in the BEGIN section affects all
+files, otherwise it only affects files opened after the 
+assignment to BINMODE.  Once a file is open, later assignment to
+BINMODE does not affect it.  Note that with binary output, printf
+will behave strangely -- you'll need to explicitly use \r
+
+  Eg    mawk -v BINMODE=2 '{ printf "%d %s\r\n", NR, $0}'
+
+Assignment to BINMODE does not change RS or ORS; however there is
+a -W feature 
+
+   -W BINMODE=1   is the same as
+   -v BINMODE=1 -v RS="\r\n" or BEGIN{BINMODE=1 ; RS = "\r\n" }
+
+   -W BINMODE=2   is the same as
+   -v BINMODE=2 -v ORS="\r\n" or BEGIN{BINMODE=2 ; ORS = "\r\n" }
+
+   -W BINMODE=3  is the same as
+   -v BINMODE=3 -v RS=ORS="\r\n" or BEGIN{BINMODE=2 ; RS=ORS = "\r\n" }
+
+
+Setting MAWKBINMODE in the environment is the same as using -W,
+except its permanent.
+If you rarely have to deal with text files that contain ^Z,
+then setting MAWKBINMODE=1 in the environment would speed up input
+slightly.
+
+
+----------------------------------------------------------
 WARNING: If you write an infinite loop that does not print to the 
 screen, then you will have to reboot.  For example 
 
@@ -44,12 +94,15 @@ program, but unfortunately MsDOS does not have such a feature.
 how to make mawk under MsDOS
 ---------------------------
 
-I've provided four .bat files that make mawk with TurboC.
-An anonymous reviewer provided a makefile that works with
-MSC 6.0A and nmake.
+   Rename Makefile Makefile.unx
+   Move or copy msdos\dosexec.c to source directory
+
+TurboC: Move msdos\Makefile.tcc to Makefile
+	copy msdos\tcc_dos.h to config.h
+
+MSC:    Move msdos\Makefile.MSC to Makefile
 
 Assuming you keep the same directory structure:
-
 
 1)  If you want a Unix style command line for mawk, you'll need to
     write a function called reargv(int *, char ***) which passes
@@ -61,19 +114,13 @@ Assuming you keep the same directory structure:
     (I've looked at the MKS documentation and writing reargv() for
      MKS ksh would be easy.  (contributions welcome)).
 
-2)  Using TurboC++
-   small.bat -- makes small model without reargv
-   vsmall.bat -- makes small model with reargv
-   large.bat -- makes large model without reargv
-   vlarge.bat -- makes large model with reargv
+2)  TurboC look at comments in Makefile.  Remember to remove
+    .obj between make of bmawk.exe and mawk.exe.
 
-   You need to replace the LIB in the tlink command with the
-   directory that holds your C library. 
-
-   move the .bat file to mawk directory and run it.
 
 3) Using MSC , move Makefile.MSC to mawk directory and
    run nmake -- makes both small and large model
+
 
 4)  YACC --
 Take some care that you don't trash parse.[ch] unless you're
@@ -86,37 +133,20 @@ don't need a yacc.  The executables look bigger than before,
 but I reuse the parser table memory which returns 15K to the
 mem pool.
 
-5)  Large model DOS has been built and tested with this code.
-Compiled with TurboC its about 33% slower.  I use two mawk's,
-a small model called mawk and a large model called bmawk.
-For real work I hardly ever need bmawk.
-
-6)  The same test suite that is run on mawk under Unix can now
+5)  The same test suite that is run on mawk under Unix can now
 be run under DOS.  The same anonymous reviewer wrote  batch
-files mawk_tes.bat and fpe_test.bat.  To use them copy or move
-all the files in msdos/dostest to mawk/test.
-
-==================================================================
-
-The reason system() and pipes are missing is I haven't decided
-entirely how to handle the runaway loop problem.  Dos makes
-asynchronous termination of a program difficult, because DOS
-itself might not be able to handle exit().
-
-Hooking int 0x1a forces me to deal with cleanup and makes ^C
-a pain.  What is the effect of my 0x1a on children? (That's why
-no system() or pipes yet).  What do I have to check after a child
-terminates, children can muck up the state of the parent process.
+files mawktest.bat and fpe_test.bat.
 
 
-I have used mawk as is on DOS for about 6 months, what's missing
-I rarely use  except to emit error messages and I use
-errmsg() for that.  If I stall about fixing this stuff, DOS
-might go away and I'll never have to deal with it.
 
-Note added 8/8/91 -- I'll probably never fix the runaway loop stuff
-and ignore the fact that children can damage the parent under DOS.
-Then system and pipes are easy -- someone should do it.
+POSSIBLE PROBLEMS:
 
-Note added 9/12/91 -- It's not easy to stay within 64K and add
-system() and pipes().  In the next release of mawk, I'll do it.
+1) Using TurboC++ 1.0, the code segment is 153 bytes short of
+64K.  With another compiler or a different version of TurboC++,
+this might not fit in 64K. If this is a problem,
+then compile with -DNO_BINMODE which removes the BINMODE features
+from small model only and then it should fit.
+
+2)  MSC 5.1 requires /Os and /Gs for small model to fit in 64K.
+Reports indicate this is also true with 6.0.
+

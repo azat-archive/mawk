@@ -11,42 +11,8 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	zmalloc.c,v $
- * Revision 3.4.1.1  91/09/14  17:24:31  brennan
- * VERSION 1.0
- * 
- * Revision 3.4  91/08/13  06:52:19  brennan
- * VERSION .9994
- * 
- * Revision 3.3  91/06/28  04:17:47  brennan
- * VERSION 0.999
- * 
- * Revision 3.2  91/06/26  05:57:48  brennan
- * fixed alignment bug , only showed on some machines, V9981
- * 
- * Revision 3.1  91/06/07  10:28:30  brennan
- * VERSION 0.995
- * 
- * Revision 2.7  91/06/05  11:22:37  brennan
- * changed stupid computation of blocks
- * 
- * Revision 2.6  91/06/05  07:20:44  brennan
- * better error messages when regular expression compiles fail
- * 
- * Revision 2.5  91/06/04  09:12:00  brennan
- * added some ptr casts
- * 
- * Revision 2.4  91/06/04  06:50:34  brennan
- * use parser table memory in zmalloc (if using byacc)
- * 
- * Revision 2.3  91/06/03  07:39:52  brennan
- * fixed bug that only shows up if nearly out of memory
- * this bug was found by Carl Mascott
- * 
- * Revision 2.2  91/04/09  12:39:45  brennan
- * added static to funct decls to satisfy STARDENT compiler
- * 
- * Revision 2.1  91/04/08  08:24:17  brennan
- * VERSION 0.97
+ * Revision 5.1  91/12/05  07:56:35  brennan
+ * 1.1 pre-release
  * 
 */
 
@@ -70,8 +36,6 @@ extern  struct yacc_mem  *yacc_memp ;
   to the list at pool[2].
 */
 
-#define ZBLOCKSZ    8    
-#define ZSHIFT      3
 #define POOLSZ      16
 
 #define  CHUNK          256    
@@ -106,16 +70,14 @@ union zblock *link ;
 
 static  ZBLOCK  *pool[POOLSZ] ;
 
-PTR   zmalloc( size )
-  unsigned size ;
-{ register unsigned blocks ;
+PTR   bmalloc( blocks )
+  register unsigned blocks ;
+{ 
   register ZBLOCK *p ;
   static  unsigned amt_avail ;
   static  ZBLOCK  *avail ;
 
-  if ( size > POOLSZ * ZBLOCKSZ )  return emalloc(size) ;
-
-  blocks = (size + (ZBLOCKSZ-1)) >> ZSHIFT ;
+  if ( blocks > POOLSZ )  return emalloc(blocks<<ZSHIFT) ;
 
   if ( p = pool[blocks-1] )
   { pool[blocks-1] = p->link ; return (PTR) p ; }
@@ -148,16 +110,16 @@ PTR   zmalloc( size )
   return (PTR) p ;
 }
 
-void  zfree( p, size)
-  register PTR p ;  unsigned size ;
-{ register int index ; ;
+void  bfree( p, blocks)
+  register PTR p ;  
+  register unsigned blocks ;
+{ 
 
-  if ( size > POOLSZ * ZBLOCKSZ )  free(p) ;
+  if ( blocks > POOLSZ )  free(p) ;
   else
   {
-    index  = ((size + (ZBLOCKSZ-1))>>ZSHIFT) - 1;
-    ((ZBLOCK *) p)->link = pool[index] ;
-    pool[index] = (ZBLOCK *) p ;
+    ((ZBLOCK *)p)->link = pool[--blocks] ;
+    pool[blocks] = (ZBLOCK *) p ;
   }
 }
 

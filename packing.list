@@ -1,22 +1,24 @@
 
 ################################################
-# These files form the mawk distribution
+# These files form the mawk distribution 1.1
 #
 # Mawk is an implementation of the AWK Programming Language as
 # defined and described in Aho, Kernighan and Weinberger, The
-# Awk Programming Language, Addison-Wesley, 1988.
+# Awk Programming Language, Addison-Wesley, 1988 and extended
+# by Posix 1003.2 D11.2
 #
 ################################################
 packing.list		this file
-README			description of mawk 1.0
+README			description of mawk 1.1
+NEW			changes from 1.0 to 1.1
 INSTALL			installation instructions
 COPYING			GNU General Public License, version 2	
 ACKNOWLEDGMENT
 UCONFIG
 build_mawk              shell script for making from known configuration
-Makefile		mawk makefiles
+Makefile.in		makefile template
 Makefile.v7
-fix_ytab		shell script to modify bison output
+modbison.awk  		removes bison's use of alloca()
 V7_notes		how to install mawk on V7 unix
 ######################
 array.c			source files
@@ -71,7 +73,7 @@ zmalloc.h
 ########################
 # directory:  man
 man/mawk.1		troff input for unix style man pages
-man/mawk.doc.uu  	ascii man pages, uuencoded
+man/mawk.doc		ascii man pages
 ########################
 # directory:  rexp
 rexp/Makefile		makefiles for regexp.a
@@ -90,8 +92,10 @@ config/generic.h
 config/Idefault.h
 config/template.h
 config/ultrix_vax.h
+config/ultrix42_mips.h
 config/bsd43_vax.h
 config/sun_os40.h
+config/sun_os41.h
 config/tcc_dos.h
 config/V7.h
 config/xenix_r2.h
@@ -100,18 +104,31 @@ config/sysV.h
 config/msc_dos.h
 config/think_c.h
 config/dynix.h
+config/atarist.h
+config/mips.h
 #######################
 # directory:  test      testing and benchmarking directory
-test/mawk_test          scripts to test mawk compiled OK
-test/mawk_test.v7
-test/mawk_test.dat      input data for the test
+test/mawktest           scripts to test mawk compiled OK
+test/mawktest.v7
+test/mawktest.bat       DOS
+test/mawktest.g		atarist
+test/mawktest.dat       input data for the test
 test/fpe_test		scripts to test if fpe handling compiled OK
 test/fpe_test.v7
+test/fpe_test.bat
+test/fpe_test.g
 test/wc.awk		awk programs used by the tests
 test/reg0.awk
 test/reg1.awk
 test/reg2.awk
 test/wfrq0.awk
+test/decl-awk.out
+test/fpetest1.awk
+test/fpetest2.awk
+test/fpetest3.awk
+test/reg-awk.out
+test/wc-awk.out
+test/wfrq-awk.out
 ######################
 # directory:  examples       useful awk programs
 examples/decl.awk
@@ -119,33 +136,25 @@ examples/deps.awk
 examples/gdecl.awk
 examples/nocomment.awk
 examples/eatc.awk
-examples/gdecl.awk
 examples/primes.awk
 examples/qsort.awk
+examples/ct_length.awk		change length to length()
 ######################
 # directory  msdos
 msdos/NOTES
-msdos/reargv.c
-msdos/small.bat			command.com bat files to build mawk
-msdos/vsmall.bat		using TurboC++
-msdos/large.bat
-msdos/vlarge.bat
-msdos/objs_tcc.lnk
+msdos/dosexec.c			system() and pipes() for DOS
+msdos/xdosexec.asm		execute programs small model	
+msdos/xdosexec.see		hex dump of xdosexec.obj
+msdos/see2obj.c			recovers xdosexec.obj 
+msdos/reargv.c			example (works with PolyShell)
+msdos/Makefile.tcc		for TCC and Borland make
 msdos/Makefile.MSC		nmake and MSC 6.0A
-msdos/mawk_msc.lnk
-msdos/bmawk_msc.lnk
+msdos/mawkmsc.lnk
+msdos/bmawkmsc.lnk
 #####################
-# directory  msdos/dostest
-msdos/dostest/decl-awk.out
-msdos/dostest/fpe_test.bat
-msdos/dostest/fpetest1.awk
-msdos/dostest/fpetest2.awk
-msdos/dostest/fpetest3.awk
-msdos/dostest/mawk_tes.bat
-msdos/dostest/mawk_tes.dat
-msdos/dostest/reg-awk.out
-msdos/dostest/wc-awk.out
-msdos/dostest/wfrq-awk.out
-########################
 # directory macintosh
 macintosh/NOTES
+macintosh/THINK_C.PROJ
+#######################
+# directory atarist
+atarist/README.ST

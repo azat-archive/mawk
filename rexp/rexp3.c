@@ -11,6 +11,12 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	rexp3.c,v $
+ * Revision 3.5  92/01/21  17:33:20  brennan
+ * added some casts so that character classes work with signed chars
+ * 
+ * Revision 3.4  91/10/29  10:54:09  brennan
+ * SIZE_T
+ * 
  * Revision 3.3  91/08/13  09:10:18  brennan
  * VERSION .9994
  * 
@@ -29,9 +35,6 @@ the GNU General Public License, version 2, 1991.
 
 #include "rexp.h"
 
-
-/*  check that a bit is on  */
-#define  ison(b,x) ( (b)[(x)>>3] & ( 1 << ((x)&7)  ))
 
 
 extern RT_STATE *RE_run_stack_base; 

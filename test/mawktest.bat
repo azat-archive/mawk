@@ -9,10 +9,10 @@ rem
 rem  it's too bad that years after MSDOS was introduced that basic
 rem  system utilities like fc still don't return valid exit codes!!!
 
-set dat=mawk_test.dat
+set dat=mawktest.dat
 
 rem  find out which mawk we're testing
-mawk -V
+mawk -Wv
 
 rem ################################
 
@@ -45,5 +45,5 @@ fc temp$$ decl-awk.out
 if errorlevel 1 goto :done
 
 echo if fc always encountered "no differences", then the tested mawk seems OK
-del temp$$
 :done
+del temp$$

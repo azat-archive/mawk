@@ -28,12 +28,16 @@ stardentVr3
 
 apolloSR10.3
 dynix
+mips
+
+atarist				cross compile with gcc
 
 
 To make mawk on one of these systems, run
 
-	build_mawk [CC=your_cc]   system
+	build_mawk  system  [CC=your_cc]
 
+(build_mawk is a Bourne shell script(/bin/sh))
 
 V7:  This port is the work of Carl Mascott.  You'll need to read
 his notes and use the .v7 Makefiles
@@ -90,3 +94,9 @@ stardentVr3
 
 dynix  
 	Sequent symmetry
+
+mips
+   	MIPS M2000 	C 2.20 (4.52)
+
+atarist
+	atari ST/StE/TT series with gcc
