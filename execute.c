@@ -461,7 +461,7 @@ INST  *execute(cdp, sp, fp)
                     free_STRING(string(sp)) ;
                     break ;
               case C_STRNUM : /* test as a number */
-                    sp->dval  = sp->dval ? 0.0 : 1.0 ;
+                    sp->dval  = sp->dval ? 1.0 : 0.0 ;
                     free_STRING(string(sp)) ;
                     break ;
               case C_MBSTRN :
