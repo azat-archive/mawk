@@ -1,7 +1,7 @@
 
 /********************************************
 mawk.h
-copyright 1991, Michael D. Brennan
+copyright 1991 1992, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -11,10 +11,13 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/*   $Log:	mawk.h,v $
- * Revision 5.4  92/03/03  16:34:41  brennan
+/*   $Log: mawk.h,v $
+ * Revision 5.5  1992/07/06  20:15:49  brennan
+ * DONT_PROTO_OPEN macro
+ *
+ * Revision 5.4  1992/03/03  16:34:41  brennan
  * conditional around open() proto
- * 
+ *
  * Revision 5.3  92/01/09  08:46:58  brennan
  * cell destroy macro
  * 
@@ -156,10 +159,11 @@ void  PROTO( exit, (int) ) ;
 int   PROTO( close, (int) ) ;
 
 /* ANSI compilers won't like open() if they've ever seen open as
-   int open(char *,int, ...).  If so remove it.
+   int open(char *,int, ...).  If so , 
+   #define DONT_PROTO_OPEN
 */
 
-#ifndef _IBMR2 /* AIX */
+#ifndef DONT_PROTO_OPEN
 int   PROTO( open, (char *,int, int) ) ;
 #endif
 

@@ -13,10 +13,10 @@ the GNU General Public License, version 2, 1991.
   SGI  IRIX4.0.1
 */
 
-/* $Log:	sgi.h,v $
- * Revision 1.1  92/02/25  08:10:22  brennan
+/* $Log: sgi.h,v $
+ * Revision 1.1  1992/02/25  08:10:22  brennan
  * Initial revision
- * 
+ *
 */
 
 #ifndef  CONFIG_H

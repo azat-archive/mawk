@@ -10,10 +10,13 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*$Log:	symtype.h,v $
- * Revision 5.1  91/12/05  07:59:37  brennan
+/*$Log: symtype.h,v $
+ * Revision 5.2  1992/07/08  15:44:44  brennan
+ * patch2: length returns.  I am a wimp
+ *
+ * Revision 5.1  1991/12/05  07:59:37  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 /* types related to symbols are defined here */
@@ -110,9 +113,10 @@ void  PROTO( fdump, (void) ) ;
 #define  ST_FUNCT   6
 #define  ST_NR      7  /*  NR is special */
 #define  ST_ENV     8  /* and so is ENVIRON */
-#define  ST_LOCAL_NONE  9
-#define  ST_LOCAL_VAR   10
-#define  ST_LOCAL_ARRAY 11
+#define  ST_LENGTH  9  /* ditto and bozo */
+#define  ST_LOCAL_NONE  10
+#define  ST_LOCAL_VAR   11
+#define  ST_LOCAL_ARRAY 12
 
 #define  is_local(stp)   ((stp)->type>=ST_LOCAL_NONE)
 

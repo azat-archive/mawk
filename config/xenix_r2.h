@@ -23,10 +23,10 @@ the GNU General Public License, version 2, 1991.
 
 */
 
-/*$Log:	xenix_r2.h,v $
- * Revision 4.1  91/09/25  11:42:13  brennan
+/*$Log: xenix_r2.h,v $
+ * Revision 4.1  1991/09/25  11:42:13  brennan
  * VERSION 1.0
- * 
+ *
  * Revision 1.2  91/08/13  09:04:24  brennan
  * VERSION .9994
  * 

@@ -11,10 +11,10 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/* $Log:	error.c,v $
- * Revision 5.1  91/12/05  07:55:48  brennan
+/* $Log: error.c,v $
+ * Revision 5.1  1991/12/05  07:55:48  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 

@@ -10,10 +10,10 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*$Log:	zmalloc.h,v $
- * Revision 5.1  91/12/05  07:59:41  brennan
+/*$Log: zmalloc.h,v $
+ * Revision 5.1  1991/12/05  07:59:41  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 /* zmalloc.h */

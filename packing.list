@@ -1,6 +1,6 @@
 
 ################################################
-# These files form the mawk distribution 1.1.1
+# These files form the mawk distribution 1.1.2
 #
 # Mawk is an implementation of the AWK Programming Language as
 # defined and described in Aho, Kernighan and Weinberger, The
@@ -11,7 +11,7 @@
 packing.list		this file
 README			description of mawk 1.1
 NEW			changes from 1.0 to 1.1
-PATCHES			changes from 1.1 to 1.1.1
+PATCHES			changes from 1.1 to 1.1.2
 INSTALL			installation instructions
 COPYING			GNU General Public License, version 2	
 ACKNOWLEDGMENT
@@ -102,6 +102,7 @@ config/V7.h
 config/xenix_r2.h
 config/sysV_ieeefp.h
 config/sysV.h
+config/sysVr4i386.h
 config/msc_dos.h
 config/think_c.h
 config/dynix.h
@@ -110,6 +111,8 @@ config/mips.h
 config/next.h
 config/sgi.h
 config/apollo.h
+config/convex.h
+config/aix.h
 #######################
 # directory:  test      testing and benchmarking directory
 test/mawktest           scripts to test mawk compiled OK

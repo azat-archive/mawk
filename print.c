@@ -10,11 +10,14 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/* $Log:	print.c,v $
- * Revision 5.2  92/02/24  10:52:16  brennan
+/* $Log: print.c,v $
+ * Revision 5.3  1992/08/17  14:23:21  brennan
+ * patch2: After parsing, only bi_sprintf() uses string_buff.
+ *
+ * Revision 5.2  1992/02/24  10:52:16  brennan
  * printf and sprintf() can now have more args than % conversions
  * removed HAVE_PRINTF_HD -- it was too obscure
- * 
+ *
  * Revision 5.1  91/12/05  07:56:22  brennan
  * 1.1 pre-release
  * 
@@ -37,6 +40,9 @@ static void  PROTO( bad_conversion, (int, char *, char *)) ;
 /* this can be moved and enlarged  by -W sprintf=num  */
 char *sprintf_buff = string_buff ;
 char *sprintf_limit = string_buff + SPRINTF_SZ ;
+
+/* Once execute() starts the sprintf code is (belatedly) the only
+   code allowed to use string_buff  */
 
 static void print_cell(p, fp)
   register CELL *p ;

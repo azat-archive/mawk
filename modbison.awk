@@ -6,7 +6,7 @@
 # and since mawk never uses alloca() and some systems don't have it
 # the most portable solution is to #if 0  it out
 #
-# This script only works with bison 1.14
+# This script works with bison 1.14 and 1.18
 #
 
 # Also with bison 1.14, two arrays yyphrs[] and yyrhs[] slip

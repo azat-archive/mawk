@@ -10,10 +10,10 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/* $Log:	main.c,v $
- * Revision 5.1  91/12/05  07:56:14  brennan
+/* $Log: main.c,v $
+ * Revision 5.1  1991/12/05  07:56:14  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 

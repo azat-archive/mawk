@@ -17,6 +17,7 @@ Ports to new systems:
 	Andy Mason		Next 2.1
 	Mike Carlton		Next 2.1
 	Elliot Jaffe		AIX 3.1
+	Jeremy Martin		Convex 9.1
 
 The DOS version is a lot better thanks to suggestions and testing
 from Ed Ferguson, Jack Fitts, Nadav Horesh, Michael Golan and
@@ -25,4 +26,5 @@ Conny Ohstrom.
 Arnold Robbins kept me current on POSIX standards for AWK, and
 explained some of the "dark corners".
 
-
+Thank you to everyone who reported bugs or offered encouragement,
+suggestions or criticism. (At least the bugs got fixed).

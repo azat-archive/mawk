@@ -10,10 +10,16 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/* $Log:	field.c,v $
- * Revision 5.1  91/12/05  07:55:57  brennan
+/* $Log: field.c,v $
+ * Revision 5.3  1992/08/17  14:21:10  brennan
+ * patch2: After parsing, only bi_sprintf() uses string_buff.
+ *
+ * Revision 5.2  1992/07/10  16:17:10  brennan
+ * MsDOS: remove NO_BINMODE macro
+ *
+ * Revision 5.1  1991/12/05  07:55:57  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 
@@ -312,11 +318,12 @@ void  field_assign( fp, cp)
           /* It's a string, but if it's really goofy and CONVFMT,
 	     it could still damage us. Test it .
 	  */
-          string_buff[256] = 0 ;
-          (void) sprintf(string_buff, 
-             string(fp)->str, 3.1459) ;
-          if ( string_buff[256] )
-                rt_error("CONVFMT assigned unusable value") ;
+          char xbuff[512] ;
+
+	  xbuff[256] = 0 ;
+          (void) sprintf( xbuff, string(fp)->str, 3.1459) ;
+          if ( xbuff[256] ) 
+	      rt_error("CONVFMT assigned unusable value") ;
         }
         break ;
 
@@ -405,14 +412,14 @@ static void  build_field0()
         }
 	else /* its a double */
 	{ int ival ;
+	  char xbuff[260] ;
 
 	  if ( (double)(ival = (int)cp->dval) == cp->dval )
-	    (void) sprintf(string_buff, "%d", ival) ;
+	    (void) sprintf(xbuff, "%d", ival) ;
 	  else
-	    (void) sprintf(string_buff,
-			   string(CONVFMT)->str, cp->dval) ;
+	    (void) sprintf(xbuff, string(CONVFMT)->str, cp->dval) ;
 
-	  cp->ptr = (PTR) new_STRING(string_buff) ;
+	  cp->ptr = (PTR) new_STRING(xbuff) ;
         }
       }
 
@@ -569,7 +576,7 @@ static void  load_field_ov()
 }
 
 
-#if  MSDOS && NO_BINMODE==0
+#if  MSDOS 
 
 int binmode()  /* read current value of BINMODE */
 { CELL c ;

@@ -11,10 +11,10 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/* $Log:	kw.c,v $
- * Revision 5.1  91/12/05  07:56:12  brennan
+/* $Log: kw.c,v $
+ * Revision 5.1  1991/12/05  07:56:12  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 

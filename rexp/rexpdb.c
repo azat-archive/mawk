@@ -11,10 +11,10 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/*$Log:	rexpdb.c,v $
- * Revision 3.2  91/08/13  09:10:09  brennan
+/*$Log: rexpdb.c,v $
+ * Revision 3.2  1991/08/13  09:10:09  brennan
  * VERSION .9994
- * 
+ *
  * Revision 3.1  91/06/07  10:33:30  brennan
  * VERSION 0.995
  * 

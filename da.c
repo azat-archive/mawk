@@ -11,10 +11,14 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/* $Log:	da.c,v $
- * Revision 5.1  91/12/05  07:55:45  brennan
+/* $Log: da.c,v $
+ * Revision 5.2  1992/07/25  21:35:25  brennan
+ * patch2
+ * fixed small typo on da of _PRE_DEC
+ *
+ * Revision 5.1  1991/12/05  07:55:45  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 
@@ -76,11 +80,11 @@ F_POW_ASG, "f_pow_asg",
 _POST_INC, "post_inc",
 _POST_DEC, "post_dec",
 _PRE_INC, "pre_inc",
-_PRE_INC, "pre_dec",
+_PRE_DEC, "pre_dec",
 F_POST_INC, "f_post_inc",
 F_POST_DEC, "f_post_dec",
 F_PRE_INC, "f_pre_inc",
-F_PRE_INC, "f_pre_dec",
+F_PRE_DEC, "f_pre_dec",
 _EQ, "eq",
 _NEQ, "neq",
 _LT, "lt",

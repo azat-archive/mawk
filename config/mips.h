@@ -9,10 +9,10 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*$Log:	mips.h,v $
- * Revision 1.2  91/11/15  08:13:20  brennan
+/*$Log: mips.h,v $
+ * Revision 1.2  1991/11/15  08:13:20  brennan
  * declaration for sprintf
- * 
+ *
  * Revision 1.1  91/10/28  09:58:05  brennan
  * Initial revision
  * 

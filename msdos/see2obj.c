@@ -10,10 +10,10 @@
    stdin to stdout
 */
 
-/*$Log:	see2obj.c,v $
- * Revision 1.1  91/10/29  07:53:53  brennan
+/*$Log: see2obj.c,v $
+ * Revision 1.1  1991/10/29  07:53:53  brennan
  * Initial revision
- * 
+ *
 */
 
 

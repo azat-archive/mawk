@@ -10,10 +10,10 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/* $Log:	field.h,v $
- * Revision 5.2  92/01/06  08:10:24  brennan
+/* $Log: field.h,v $
+ * Revision 5.2  1992/01/06  08:10:24  brennan
  * set_binmode() proto for MSDOS
- * 
+ *
  * Revision 5.1  91/12/05  07:59:16  brennan
  * 1.1 pre-release
  * 

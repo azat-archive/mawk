@@ -10,10 +10,10 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*$Log:	rexp1.c,v $
- * Revision 3.4  92/02/20  16:08:12  brennan
+/*$Log: rexp1.c,v $
+ * Revision 3.4  1992/02/20  16:08:12  brennan
  * change new_TWO() to work around sun acc bug
- * 
+ *
  * Revision 3.3  91/10/29  10:54:01  brennan
  * SIZE_T
  * 

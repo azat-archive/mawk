@@ -11,7 +11,13 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/* $Log:	Idefault.h,v $
+/* $Log: Idefault.h,v $
+ * Revision 3.15  1992/07/08  16:16:08  brennan
+ * don't attempt any #def or #undef with __STDC__
+ *
+ * Revision 3.14  1992/03/31  13:39:00  brennan
+ * TURN_ON_FPE_TRAPS() macro
+ *
  * Revision 3.13  92/03/03  16:40:56  brennan
  * remove HAVE_PRINTF_HD
  * 
@@ -185,6 +191,10 @@ the GNU General Public License, version 2, 1991.
 #define  TURN_OFF_FPE_TRAPS()	/* nothing */
 #endif
 
+#ifndef  TURN_ON_FPE_TRAPS
+#define  TURN_ON_FPE_TRAPS()	/* nothing */
+#endif
+
 #ifndef  HAVE_SMALL_MEMORY
 #define  HAVE_SMALL_MEMORY	0
 #endif
@@ -193,12 +203,8 @@ the GNU General Public License, version 2, 1991.
 /*------------------------------------------------*/
 
 
-#ifndef  __STDC__
-#define  __STDC__  0
-#endif
-
+#ifdef __STDC__
 #if   __STDC__  
-
 #undef  HAVE_PROTOS
 #define HAVE_PROTOS		1
 #undef  HAVE_VOID_PTR
@@ -207,14 +213,10 @@ the GNU General Public License, version 2, 1991.
 #define HAVE_STDARG_H		1
 #undef  HAVE_STRING_H
 #define HAVE_STRING_H		1
-#endif  
-
-#if   __STDC__  &&  ! __GNUC__
-/* with gcc __STDC__ can be defined, but stdlib.h is missing */
 #undef  HAVE_STDLIB_H
 #define HAVE_STDLIB_H		1
+#endif  
 #endif
-
 
 
 
@@ -274,13 +276,6 @@ the GNU General Public License, version 2, 1991.
 #define  PROTO(name, args)  name()
 #endif
 
-/* ultrix pukes if __STDC__ is defined 0  */
-/* SCO UNIX's cc (from Microsoft) sneezes if __STDC__ is re-#define-d */
-#if (__STDC__ == 0)
-#ifndef M_I386
-#undef __STDC__
-#endif
-#endif
 
 /* for Think C on the Macintosh, sizeof(size_t) != sizeof(unsigned
  * Rather than unilaterally imposing size_t, when not all compilers would

@@ -11,10 +11,10 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/* $Log:	memory.c,v $
- * Revision 5.1  91/12/05  07:56:21  brennan
+/* $Log: memory.c,v $
+ * Revision 5.1  1991/12/05  07:56:21  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 

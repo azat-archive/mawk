@@ -1,6 +1,66 @@
 
+patch2:  mawk1.1.1 -> mawk1.1.2   26 Aug 92
 
-patch1:  mawk1.1 to mawk1.1.1
+1)  Comparisons are done as described the AWK book, which is the
+    same as mawk1.0.  Evidently I lack the requisite mental facilities
+    to understand posix comparisons , i.e.
+
+      echo 0 | mawk '$0 == "0000" { print "true" }'
+      true
+
+    was a major bozo.
+
+2)  If n = split(s, X, r) , then all elements other than
+    X[1..n] are now deleted from X.  This behavior is 
+    consistent with other awks.
+
+3)  foo = "foo"
+    foo++ evaluates to 0 and value of foo is 1
+
+    old behavior was foo++ was "foo" and foo then set to 1
+
+4)  Fixed two bugs in regular expression lexical scanner:
+
+    [c1-c2] did not work right if c2 was an escaped character.
+
+    function do_str() which collected runs of characters did
+    not work right if the last character was escaped and the run
+    ended with * + or ?.
+
+5)  You can now read and write to the same file.  E.g.
+
+    printf "Enter:  " > "/dev/tty"
+    getline answer < "/dev/tty"
+
+6)  Output to files which are ttys is now unbuffered.
+
+7)  FILENAME and FNR retain their value from the last record in
+    the END section.  
+
+8)  man pages might groff.
+
+9)  New configuration files
+	aix.h  convex.h  sysVr4i386.h
+
+10) Better error recovery for bungled function definitions
+    via new productions
+
+    program_block : outside_error block ;
+    error : outside_error ;
+
+11) If i > NF , then ++$i , $i++, g?sub(r,s,$i), now work
+    correctly.
+
+12) MsDOS, interactive input: terminating a line with ^Z
+    works correctly (at least with TC++ compiler).
+
+l3) string_buff had too many users which induced an error in
+    sprintf().  After parsing, string_buff is now only be used
+    by sprintf().
+    (Old fart seduced by subliminal common block).
+
+--------------------------------------------------
+patch1:  mawk1.1 to mawk1.1.1     (mar 92)
 
 1) fixed bug which caused 
 

@@ -10,7 +10,12 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*$Log:	matherr.c,v $
+/*$Log: matherr.c,v $
+ * Revision 5.2  1992/03/31  16:14:44  brennan
+ * patch2:
+ * TURN_ON_FPE_TRAPS() macro
+ * USE_IEEEFP_H macro
+ *
  * Revision 5.1  91/12/05  07:56:18  brennan
  * 1.1 pre-release
  * 
@@ -18,6 +23,10 @@ the GNU General Public License, version 2, 1991.
 
 #include  "mawk.h"
 #include  <math.h>
+
+#ifdef  USE_IEEEFP_H
+#include <ieeefp.h>
+#endif
 
 #if   FPE_TRAPS_ON
 #include <signal.h>
@@ -52,7 +61,10 @@ static void  fpe_catch( signal, why)
 }
 
 void   fpe_init()
-{ (void) signal(SIGFPE, fpe_catch) ; }
+{ 
+  TURN_ON_FPE_TRAPS() ;
+  (void) signal(SIGFPE, fpe_catch) ; 
+}
 
 #else  /* FPE_TRAPS_ON==0 */
 

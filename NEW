@@ -56,24 +56,6 @@ is the same as
       if ( $0 ~ /^A.*B/ ) {....}
 
 
-length   is no longer valid must be length() or length(expr)
-
-      (programs that fail can be run through
-	examples/ct_length.awk,
-       ct stands for cold turkey)
-
-[WARNING: THIS BREAKS SOME OLD AWK SCRIPTS.
-Mawk1.1 does not support length without arguments, because
-
-	(1) It's not in the posix draft.
-	(2) It's not in the AWK book.
-	(3) It's inconsistent with the overall language design.
-
-Those who disagree with this decision enough to complain should
-put "pointy-headed purist" somewhere in their Subject: line.
-]
-
-
 printf and sprintf are ANSI C compatible, you can for example
 
      printf "%-#0*.*lX", 20,6 , x

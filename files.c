@@ -1,7 +1,7 @@
 
 /********************************************
 files.c
-copyright 1991, Michael D. Brennan
+copyright 1991, 1992.  Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -10,7 +10,21 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*$Log:	files.c,v $
+/*$Log: files.c,v $
+ * Revision 5.4  1992/07/10  16:10:30  brennan
+ * patch2
+ * MsDOS: remove useless NO_BINMODE macro
+ * get process exit code on in pipes
+ *
+ * Revision 5.3  1992/04/07  20:21:17  brennan
+ * patch 2
+ * unbuffered output to a tty
+ *
+ * Revision 5.2  1992/04/07  16:03:08  brennan
+ * patch 2
+ * allow same filename for output and input, but use different descriptors
+ * E.g. < "/dev/tty" and > "/dev/tty"
+ *
  * Revision 5.1  91/12/05  07:56:00  brennan
  * 1.1 pre-release
  * 
@@ -23,6 +37,10 @@ the GNU General Public License, version 2, 1991.
 #include "memory.h"
 #include "fin.h"
 
+static FILE  *PROTO(tfopen, (char*,char*)) ;
+static  void  PROTO(add_to_child_list, (int,int)) ;
+static struct child *PROTO(remove_from_child_list, (int)) ;
+extern int PROTO(isatty, (int)) ;
 
 #ifdef  V7
 #include  <sgtty.h>    /* defines FIOCLEX */
@@ -46,8 +64,13 @@ typedef struct file {
 struct file *link ;
 STRING  *name ;
 short type ;
-int pid ;  /* we need to wait() when we close an out pipe */
+int pid ;  /* we need to wait() when we close a pipe */
            /* holds temp file index under MSDOS */
+
+#if  HAVE_FAKE_PIPES
+int inpipe_exit ; 
+#endif
+
 PTR   ptr ;  /* FIN*   or  FILE*   */
 }  FILE_NODE ;
 
@@ -62,6 +85,17 @@ void set_stderr()
   file_list->ptr = (PTR) stderr ;
 }
 
+/* fopen() but no buffering to ttys */
+static FILE *tfopen(name, mode)
+  char *name, *mode ;
+{
+  FILE *retval = fopen(name,mode) ;
+
+  if ( retval && isatty(fileno(retval)) )  setbuf(retval, (char*)0) ;
+  return retval ;
+}
+
+/* find a file on file_list */
 PTR  file_find( sval, type )
   STRING *sval ;
   int type ;
@@ -74,26 +108,26 @@ PTR  file_find( sval, type )
   {
     if ( !p )   /* open a new one */
     {
-      p = (FILE_NODE*) zmalloc(sizeof(FILE_NODE)) ;
+      p = ZMALLOC(FILE_NODE) ; 
       switch( p->type = type )
       {
         case  F_TRUNC :
-#if MSDOS && NO_BINMODE==0
+#if MSDOS 
             ostr = (binmode()&2) ? "wb" : "w" ;
 #else
             ostr = "w" ;
 #endif
-            if ( !(p->ptr = (PTR) fopen(name, ostr)) )
+            if ( !(p->ptr = (PTR) tfopen(name, ostr)) )
                 goto out_failure ;
             break ;
 
         case  F_APPEND :
-#if MSDOS && NO_BINMODE==0
+#if MSDOS 
             ostr = (binmode()&2) ? "ab" : "a" ;
 #else
             ostr = "a" ;
 #endif
-            if ( !(p->ptr = (PTR) fopen(name, ostr)) )
+            if ( !(p->ptr = (PTR) tfopen(name, ostr)) )
                 goto out_failure ;
             break ;
 
@@ -129,18 +163,21 @@ PTR  file_find( sval, type )
       break ; /* while loop */
     }
 
-    if ( strcmp(name, p->name->str) == 0 )
-    { /* no distinction between F_APPEND and F_TRUNC here */
-      if ( p->type != type && 
-           (p->type < F_APPEND || type < F_APPEND))  goto type_failure ;
+    /* search is by name and type */
+    if ( strcmp(name, p->name->str) == 0 &&
+	 ( p->type == type ||
+           /* no distinction between F_APPEND and F_TRUNC here */
+	   p->type >= F_APPEND && type >= F_APPEND ))
+
+    { /* found */
       if ( !q )  /*at front of list */
           return  p->ptr ;
       /* delete from list for move to front */
       q->link = p->link ;
-      break ;
+      break ; /* while loop */
     }
     q = p ; p = p->link ;
-  }
+  } /* end while loop */
 
   /* put p at the front of the list */
   p->link = file_list ;
@@ -150,20 +187,21 @@ out_failure:
   errmsg(errno, "cannot open \"%s\" for output", name) ;
   mawk_exit(1) ;
 
-type_failure :
-  rt_error("use of file \"%s\"\n\tis inconsistent with previous use",
-           name) ;
 }
 
 
-/* close a file and delete it's node from the file_list */
+/* Close a file and delete it's node from the file_list.
+   Walk the whole list, in case a name has two nodes,
+   e.g. < "/dev/tty" and > "/dev/tty"
+*/
 
 int  file_close( sval )
   STRING *sval ;
 { register FILE_NODE *p = file_list ;
   FILE_NODE *q = (FILE_NODE *) 0 ; /* trails p */
+  FILE_NODE *hold ;
   char *name = sval->str ;
-  int retval = 0 ;
+  int retval = -1 ;
 
   while ( p )
         if ( strcmp(name,p->name->str) == 0 ) /* found */
@@ -173,6 +211,7 @@ int  file_close( sval )
             case  F_TRUNC :
             case  F_APPEND :    
                 (void) fclose((FILE *) p->ptr) ;
+		retval = 0 ;
                 break ;
 
             case  PIPE_OUT :
@@ -188,6 +227,7 @@ int  file_close( sval )
 
             case F_IN  :
                 FINclose((FIN *) p->ptr) ;
+		retval = 0 ;
                 break ;
 
             case PIPE_IN :
@@ -198,21 +238,21 @@ int  file_close( sval )
 #endif
 #if  HAVE_FAKE_PIPES
                 (void) unlink(tmp_file_name(p->pid)) ;
+		retval = p->inpipe_exit ;
 #endif
                 break ;
           }
 
           free_STRING(p->name) ;
-          if ( q )  q->link = p->link ;
-          else  file_list = p->link ;
+	  hold = p ;
+          if ( q )  q->link = p = p->link ;
+          else  file_list = p = p->link ;
 
-          zfree(p, sizeof(FILE_NODE)) ;
-          return retval ;
+          ZFREE(hold) ;
         }
         else { q = p ; p = p->link ; }
 
-  /* its not on the list */
-  return -1 ;
+  return retval ;
 }
 
 /* When we exit, we need to close and wait for all output pipes */

@@ -1,7 +1,7 @@
 
 /********************************************
 array.c
-copyright 1991, Michael D. Brennan
+copyright 1991, 1992.  Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -10,7 +10,13 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/* $Log:	array.c,v $
+/* $Log: array.c,v $
+ * Revision 5.2  1992/04/07  17:17:31  brennan
+ * patch 2
+ * n = split(s,A,r)
+ * delete A[i] if i not in 1..n
+ * This is consistent with [ng]?awk
+ *
  * Revision 5.1  91/12/05  07:55:32  brennan
  * 1.1 pre-release
  * 
@@ -30,6 +36,7 @@ static ANODE *PROTO(find_by_sval, (ARRAY, STRING *, int) ) ;
 static ANODE *PROTO(find_by_index, (ARRAY, int,int,int) ) ;
 static ANODE *PROTO(find_by_dval, (ARRAY, double, int)) ;
 static void PROTO(load_array_ov, (ARRAY) ) ;
+static void PROTO(ilist_delete, (ARRAY, ANODE*)) ;
 
 
 extern unsigned hash() ;
@@ -59,17 +66,19 @@ static  ANODE *find_by_sval(A, sval, cflag)
    register ANODE *p = A[h].link ;
    ANODE *q = 0 ; /* holds first deleted ANODE */
 
-   while ( p )
-   {
+   while ( 1 )
+     if ( !p )  goto not_there ;
+     else 
      if ( p->sval )
-     { if ( strcmp(s,p->sval->str) == 0 )  return p ; }
-     else /* its deleted, mark with q */
-     if ( ! q )  q = p ;  
+	if ( strcmp(s,p->sval->str) == 0 )  return p ;
+	else  p = p->link ;
+     else { q = p ; p = p->link ; break ; }
+	
+   while ( p )  /* q is now set */
+     if ( p->sval && strcmp(s,p->sval->str) == 0 )  return p ; 
+     else  p = p->link ;
 
-     p = p->link ;
-   }
-
-   /* not there */
+not_there :
    if ( cflag )
    {
        if ( q )  p = q ; /* reuse the deleted node q */
@@ -202,13 +211,7 @@ void  array_delete(A, cp)
 
     default :
         ap = find_by_sval(A, string(cp), NO_CREATE) ;
-        if ( ap && ap->ival >= 0 )
-        {
-          int index = ap->ival % A_HASH_PRIME ;
-
-          ap = find_by_index(A, index, ap->ival, NO_CREATE) ;
-          A[index].ilink = ap->ilink ;
-        }
+        if ( ap && ap->ival >= 0 ) ilist_delete(A, ap) ;
         break ;
   }
 
@@ -251,6 +254,23 @@ static void  load_array_ov(A)
   }
 }
 
+/* delete an ANODE from the ilist that is known
+   to be there */
+
+static  void  ilist_delete(A, d) 
+  ARRAY A ;
+  ANODE *d ;
+{
+  int index = d->ival % A_HASH_PRIME ;
+  register ANODE *p = A[index].ilink ;
+  register ANODE *q = (ANODE *) 0 ;
+
+  while ( p != d ) { q = p ; p = p->ilink ; }
+
+  if ( q )  q->ilink = p->ilink ;
+  else  A[index].ilink = p->ilink ;
+}
+
 
 /* this is called by bi_split()
    to load strings into an array
@@ -263,6 +283,28 @@ void  load_array( A, cnt)
   register CELL *cp ;
   register int index ;
 
+  { /* clear A , leaving only A[1]..A[cnt] (if exist) */
+    int i ;
+    ANODE *p ;
+
+    for( i = 0 ; i < A_HASH_PRIME ; i++ )
+    {
+      p = A[i].link ;
+      while ( p )
+      {
+	if ( p->sval && (p->ival <= 0 || p->ival > cnt) )
+	{
+	  if (p->ival >= 0) ilist_delete(A, p) ;
+
+	  free_STRING(p->sval) ;
+	  p->sval = (STRING *) 0 ;
+	  cell_destroy(p->cp) ;
+	  ZFREE(p->cp) ;
+	}
+	p = p->link ;
+      }
+    }
+  }
   if ( cnt > MAX_SPLIT )
   {
     load_array_ov(A) ;

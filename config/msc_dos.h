@@ -12,10 +12,10 @@ the GNU General Public License, version 2, 1991.
 
 /* Microsoft C 6.0A under MSDOS */
 
-/*$Log:	msc_dos.h,v $
- * Revision 4.3  92/01/09  08:54:09  brennan
+/*$Log: msc_dos.h,v $
+ * Revision 4.3  1992/01/09  08:54:09  brennan
  * changed SAMESEG macro
- * 
+ *
  * Revision 4.2  91/10/29  09:36:59  brennan
  * Large model macro
  * 

@@ -10,10 +10,13 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/* $Log:	bi_vars.c,v $
- * Revision 5.1  91/12/05  07:55:38  brennan
+/* $Log: bi_vars.c,v $
+ * Revision 5.2  1992/07/10  16:17:10  brennan
+ * MsDOS: remove NO_BINMODE macro
+ *
+ * Revision 5.1  1991/12/05  07:55:38  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 
@@ -41,7 +44,7 @@ static char *bi_var_names[NUM_BI_VAR] = {
 "RLENGTH" ,
 "RSTART" ,
 "SUBSEP"
-#if MSDOS  && NO_BINMODE==0
+#if MSDOS 
 , "BINMODE"
 #endif
 } ;
@@ -80,7 +83,7 @@ void  bi_vars_init()
   NR->type = FNR->type = C_DOUBLE ;
   /* dval is already 0.0 */
 
-#if  MSDOS  && NO_BINMODE==0
+#if  MSDOS  
   BINMODE->type = C_DOUBLE ;
 #endif
 }

@@ -1,7 +1,7 @@
 
 /********************************************
 version.c
-copyright 1991, Michael D. Brennan
+copyright 1991, 1992.  Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -10,10 +10,13 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*$Log:	version.c,v $
- * Revision 5.3  92/03/03  16:42:23  brennan
+/*$Log: version.c,v $
+ * Revision 5.4  1992/08/27  11:50:38  mike
+ * patch2
+ *
+ * Revision 5.3  1992/03/03  16:42:23  brennan
  * patch 1
- * 
+ *
  * Revision 5.2  92/01/22  05:34:10  brennan
  * version 1.1
  * 
@@ -26,7 +29,7 @@ the GNU General Public License, version 2, 1991.
 #include "patchlev.h"
 
 #define  VERSION_STRING  \
-  "mawk 1.1%s%s Feb 1992, Copyright (C) Michael D. Brennan\n\n"
+  "mawk 1.1%s%s Aug 1992, Copyright (C) Michael D. Brennan\n\n"
 
 #define  DOS_STRING     ""
 

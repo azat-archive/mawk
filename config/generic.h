@@ -11,10 +11,10 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/* $Log:	generic.h,v $
- * Revision 4.4  92/03/03  16:40:54  brennan
+/* $Log: generic.h,v $
+ * Revision 4.4  1992/03/03  16:40:54  brennan
  * remove HAVE_PRINTF_HD
- * 
+ *
  * Revision 4.3  91/10/29  10:48:26  brennan
  * version 1.09
  * 

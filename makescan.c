@@ -10,10 +10,10 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*$Log:	makescan.c,v $
- * Revision 5.1  91/12/05  07:56:16  brennan
+/*$Log: makescan.c,v $
+ * Revision 5.1  1991/12/05  07:56:16  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 /* source for makescan.exe which builds the scancode[]

@@ -23,6 +23,7 @@ bsd43_vax			gcc
 sysV				gcc
 sysVsco				gcc
 sysV_ieeefp
+sysVr4i386			gcc rcc
 xenix_r2
 stardentVr3
 
@@ -32,6 +33,7 @@ mips
 next				cc is gcc
 sgi
 aix
+convex
 
 atarist				cross compile with gcc
 
@@ -89,6 +91,8 @@ sysV_ieeefp
 	 Ultrix (mips) both run on IEEE754 hardware and the
 	 math libraries support the IEEE754 standard )
 
+sysVr4i386
+	Tested on ESIX and Consensys.
 
 stardentVr3
 	tested on stardent 3000.   Mips processors and traps are off

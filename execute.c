@@ -10,10 +10,28 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/* $Log:	execute.c,v $
- * Revision 5.1  91/12/05  07:55:50  brennan
+/* $Log: execute.c,v $
+ * Revision 5.5  1992/08/11  15:24:55  brennan
+ * patch2: F_PUSHA and FE_PUSHA
+ * If this is preparation for g?sub(r,s,$expr) or (++|--) on $expr,
+ * then if expr > NF, make sure $expr is set to ""
+ *
+ * Revision 5.4  1992/08/11  14:51:54  brennan
+ * patch2:  $expr++ is numeric even if $expr is string.
+ * I forgot to do this earlier when handling x++ case.
+ *
+ * Revision 5.3  1992/07/08  17:03:30  brennan
+ * patch 2
+ * revert to version 1.0 comparisons, i.e.
+ * page 44-45 of AWK book
+ *
+ * Revision 5.2  1992/04/20  21:40:40  brennan
+ * patch 2
+ * x++ is numeric, even if x is string
+ *
+ * Revision 5.1  1991/12/05  07:55:50  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 
@@ -137,7 +155,32 @@ void  execute(cdp, sp, fp)
             break ;
 
         case  F_PUSHA :
-            if ( (CELL*)cdp->ptr != field && nf < 0 ) split_field0() ;
+	    cp = (CELL*)cdp->ptr ;
+	    if ( cp != field )
+	    {
+		if ( nf < 0 )  split_field0() ;
+
+		if ( ! ( 
+#if	LM_DOS
+		     SAMESEG(cp,field)   &&
+#endif
+		      cp >= NF && cp <= LAST_PFIELD ) )
+		{
+		  /* its a real field $1, $2 ... 
+		     If its greater than $NF, we have to
+		     make sure its set to ""  so that
+		     (++|--) and g?sub() work right
+		  */
+		  t = field_addr_to_index(cp) ;
+		  if ( t > nf )
+		  {
+		    cell_destroy(cp) ;
+		    cp->type = C_STRING ;
+		    cp->ptr = (PTR) &null_str ;
+		    null_str.ref_cnt++ ;
+		  }
+		}
+	    }
             /* fall thru */
 
         case  _PUSHA :
@@ -196,6 +239,15 @@ void  execute(cdp, sp, fp)
                 rt_error( "negative field index $%d", t) ;
             if ( t && nf < 0 )  split_field0() ;
             sp->ptr = (PTR) field_ptr(t) ;
+	    if ( t > nf )
+	    {
+	      /* make sure its set to "" */
+	      cp = sp->ptr ;
+	      cell_destroy(cp) ;
+	      cp->type = C_STRING ;
+	      cp->ptr = (PTR) &null_str ;
+	      null_str.ref_cnt++ ;
+	    }
             break ;
 
         case  FE_PUSHI :
@@ -670,14 +722,18 @@ void  execute(cdp, sp, fp)
             break ;
 
         case _POST_INC :
-            (void) cellcpy(sp, cp = (CELL *)sp->ptr) ;
+	    cp = (CELL *)sp->ptr ;
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
+	    sp->type = C_DOUBLE ;
+	    sp->dval = cp->dval ;
             cp->dval += 1.0 ;
             break ;
 
         case _POST_DEC :
-            (void) cellcpy(sp, cp = (CELL *)sp->ptr) ;
+	    cp = (CELL *)sp->ptr ;
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
+	    sp->type = C_DOUBLE ;
+	    sp->dval = cp->dval ;
             cp->dval -= 1.0 ;
             break ;
 
@@ -698,33 +754,35 @@ void  execute(cdp, sp, fp)
 
         case F_POST_INC  :
             cp = (CELL *) sp->ptr ;
-            (void) cellcpy(sp, cellcpy(&tc, cp) ) ;
-            cast1_to_d(&tc) ;
-            tc.dval += 1.0 ;
+	    (void) cellcpy(&tc, cp) ;
+	    cast1_to_d(&tc) ;
+	    sp->type = C_DOUBLE ;
+	    sp->dval = tc.dval ;
+	    tc.dval += 1.0 ;
             field_assign(cp, &tc) ;
             break ;
 
         case F_POST_DEC  :
             cp = (CELL *) sp->ptr ;
-            (void) cellcpy(sp, cellcpy(&tc, cp) ) ;
-            cast1_to_d(&tc) ;
-            tc.dval -= 1.0 ;
+	    (void) cellcpy(&tc, cp) ;
+	    cast1_to_d(&tc) ;
+	    sp->type = C_DOUBLE ;
+	    sp->dval = tc.dval ;
+	    tc.dval -= 1.0 ;
             field_assign(cp, &tc) ;
             break ;
 
         case F_PRE_INC :
             cp = (CELL *) sp->ptr ;
-            cast1_to_d(cellcpy(&tc, cp)) ;
-            sp->dval = tc.dval += 1.0 ;
-            sp->type = C_DOUBLE ;
+            cast1_to_d(cellcpy(sp, cp)) ;
+            sp->dval += 1.0 ;
             field_assign(cp, sp) ;
             break ;
 
         case F_PRE_DEC :
             cp = (CELL *) sp->ptr ;
-            cast1_to_d(cellcpy(&tc, cp)) ;
-            sp->dval = tc.dval -= 1.0 ;
-            sp->type = C_DOUBLE ;
+            cast1_to_d(cellcpy(sp, cp)) ;
+            sp->dval -= 1.0 ;
             field_assign(cp, sp) ;
             break ;
 
@@ -1061,7 +1119,6 @@ reswitch :
 static int compare(cp)
   register CELL *cp ;
 { int k ;
-  CELL *dp, *sp ;
 
 reswitch :
 
@@ -1074,21 +1131,12 @@ reswitch :
                     cp->dval < (cp+1)->dval ? -1 : 0 ;
     
     case TWO_STRINGS :
+    case STRING_AND_STRNUM :
+    two_s:
             k = strcmp(string(cp)->str, string(cp+1)->str) ;
             free_STRING( string(cp) ) ;
             free_STRING( string(cp+1) ) ;
             return k ;
-
-    case STRING_AND_STRNUM :  /* posix numeric string bozosity */
-    case  NOINIT_AND_STRING  :
-    case  DOUBLE_AND_STRING  :
-            if ( cp->type  == C_STRING ) { sp = cp ; dp = cp+1 ; }
-            else { dp = cp ; sp = cp+1 ; }
-
-            check_strnum(sp) ;
-            if ( sp->type == C_STRING ) cast1_to_s(dp) ;
-            goto reswitch ;
-
 
     case  NOINIT_AND_DOUBLE  :
     case  NOINIT_AND_STRNUM  :
@@ -1096,6 +1144,9 @@ reswitch :
     case TWO_STRNUMS :
             cast2_to_d(cp) ; goto two_d ;
 
+    case  NOINIT_AND_STRING  :
+    case  DOUBLE_AND_STRING  :
+            cast2_to_s(cp) ; goto two_s ;
 
     case  TWO_MBSTRNS :
             check_strnum(cp) ; check_strnum(cp+1) ;

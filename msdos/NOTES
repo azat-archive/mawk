@@ -141,11 +141,9 @@ files mawktest.bat and fpe_test.bat.
 
 POSSIBLE PROBLEMS:
 
-1) Using TurboC++ 1.0, the code segment is 153 bytes short of
-64K.  With another compiler or a different version of TurboC++,
-this might not fit in 64K. If this is a problem,
-then compile with -DNO_BINMODE which removes the BINMODE features
-from small model only and then it should fit.
+1) Hopefully you can compile for speed and still fit the code
+in 64K.  If not set your compiler switches to compile for 
+optimized (ie small) size.
 
 2)  MSC 5.1 requires /Os and /Gs for small model to fit in 64K.
 Reports indicate this is also true with 6.0.

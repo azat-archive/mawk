@@ -43,7 +43,7 @@ FIX_YTAB=cat    #  makes parse.c from y.tab.c and parse2.xc
 #YACC=bison -dy
 #AWK= mawk  # or gawk or nawk or awk
 #FIX_YTAB=$(AWK) -f modbison.awk 
-#		       uncomment this with bison 1.14
+#		       uncomment this with bison 1.14 or 1.18
 #                      don't use an earlier version
 
 #installation macros -- user settable targets for "make install"

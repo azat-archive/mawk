@@ -10,10 +10,10 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/* $Log:	jmp.c,v $
- * Revision 5.1  91/12/05  07:56:10  brennan
+/* $Log: jmp.c,v $
+ * Revision 5.1  1991/12/05  07:56:10  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 /* this module deals with back patching jumps, breaks and continues,

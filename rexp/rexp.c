@@ -10,10 +10,10 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*$Log:	rexp.c,v $
- * Revision 3.4  91/08/13  09:09:59  brennan
+/*$Log: rexp.c,v $
+ * Revision 3.4  1991/08/13  09:09:59  brennan
  * VERSION .9994
- * 
+ *
  * Revision 3.3  91/08/04  15:45:03  brennan
  * no longer attempt to recover mem on failed REcompile
  * Its not worth the effort

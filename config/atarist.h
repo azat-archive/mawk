@@ -16,10 +16,10 @@ the GNU General Public License, version 2, 1991.
 
 */
 
-/*$Log:	atarist.h,v $
- * Revision 1.1  91/10/29  10:48:52  brennan
+/*$Log: atarist.h,v $
+ * Revision 1.1  1991/10/29  10:48:52  brennan
  * Initial revision
- * 
+ *
 */
 
 #ifndef   CONFIG_H

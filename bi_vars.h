@@ -11,10 +11,13 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/* $Log:	bi_vars.h,v $
- * Revision 5.1  91/12/05  07:59:05  brennan
+/* $Log: bi_vars.h,v $
+ * Revision 5.2  1992/07/10  16:17:10  brennan
+ * MsDOS: remove NO_BINMODE macro
+ *
+ * Revision 5.1  1991/12/05  07:59:05  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 
@@ -40,7 +43,7 @@ the GNU General Public License, version 2, 1991.
 #define  RSTART    (bi_vars+7)
 #define  SUBSEP    (bi_vars+8)
 
-#if  MSDOS  &&  NO_BINMODE==0
+#if  MSDOS 
 #define  BINMODE   (bi_vars+9)
 #define  NUM_BI_VAR  10
 #else

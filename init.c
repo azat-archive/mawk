@@ -11,10 +11,13 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/* $Log:	init.c,v $
- * Revision 5.2  92/01/09  08:46:14  brennan
+/* $Log: init.c,v $
+ * Revision 5.3  1992/07/10  16:17:10  brennan
+ * MsDOS: remove NO_BINMODE macro
+ *
+ * Revision 5.2  1992/01/09  08:46:14  brennan
  * small change for MSC
- * 
+ *
  * Revision 5.1  91/12/05  07:56:07  brennan
  * 1.1 pre-release
  * 
@@ -64,7 +67,7 @@ void initialize(argc, argv)
   argc = ccommand(&argv);
 #endif 
 
-#if   MSDOS  &&  NO_BINMODE==0
+#if   MSDOS  
   { char *p = getenv("MAWKBINMODE") ;
 
     if ( p )  set_binmode( atoi(p) ) ;
@@ -166,7 +169,7 @@ static void  process_cmdline(argc, argv)
 		sprintf_limit = sprintf_buff + x ;
 	      }
 	    }
-#if  MSDOS  &&  NO_BINMODE==0
+#if  MSDOS  
 	    else
 	    if ( optarg[0] == 'B' )
 	    {

@@ -11,10 +11,10 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/* $Log:	sysV_ieeefp.h,v $
- * Revision 4.1  91/09/25  11:41:45  brennan
+/* $Log: sysV_ieeefp.h,v $
+ * Revision 4.1  1991/09/25  11:41:45  brennan
  * VERSION 1.0
- * 
+ *
  * Revision 1.3  91/09/10  09:19:41  brennan
  * fixed comment typo
  * 

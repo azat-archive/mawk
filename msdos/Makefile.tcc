@@ -7,8 +7,8 @@
 #   make  -DREARGV  --  mawk.exe   unix command line
 #   make  -DLARGE -DREARGV  -- bmawk.exe   unix  command line
 
-#$Log:	Makefile.tcc,v $
-#Revision 1.2  91/11/12  09:59:26  brennan
+#$Log: Makefile.tcc,v $
+#Revision 1.2  1991/11/12  09:59:26  brennan
 #changed tcc to $(CC) and .o to .obj
 #
 #Revision 1.1  91/10/29  07:45:29  brennan

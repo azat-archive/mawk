@@ -15,10 +15,9 @@ The port of mawk to V7 is the work of
 Carl Mascott (cmascott@world.std.com)
 */
 
-/*$Log:	V7.h,v $
- * Revision 4.2  91/11/21  13:30:34  brennan
- *    
- * 
+/*$Log: V7.h,v $
+ * Revision 4.2  1991/11/21  13:30:34  brennan
+ *
  * 11/17/91  C. Mascott		declare fprintf, sprintf on V7
  *
  * Revision 4.1  91/09/25  11:40:41  brennan

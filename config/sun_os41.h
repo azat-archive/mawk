@@ -1,7 +1,7 @@
 
 /********************************************
 sun_os41.h
-copyright 1991, Michael D. Brennan
+copyright 1991, 1992.   Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -11,10 +11,13 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/* $Log:	sun_os41.h,v $
- * Revision 1.3  91/12/05  08:24:02  brennan
+/* $Log: sun_os41.h,v $
+ * Revision 1.4  1992/07/07  15:45:58  brennan
+ * <stdlib.h> is non-standard
+ *
+ * Revision 1.3  1991/12/05  08:24:02  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 #ifndef  CONFIG_H
@@ -22,6 +25,9 @@ the GNU General Public License, version 2, 1991.
 
 /* this is missing (actually its in 5include) */
 int fprintf() ;
+
+/* this is not in <stdlib.h>  */
+double strtod() ;
 
 
 #include "config/Idefault.h"

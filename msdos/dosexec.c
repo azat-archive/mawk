@@ -10,10 +10,13 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*$Log:	dosexec.c,v $
- * Revision 1.2  91/11/16  10:27:18  brennan
- * BINMODE 
- * 
+/*$Log: dosexec.c,v $
+ * Revision 1.3  1992/07/10  16:21:57  brennan
+ * store exit code of input pipes
+ *
+ * Revision 1.2  1991/11/16  10:27:18  brennan
+ * BINMODE
+ *
  * Revision 1.1  91/10/29  09:45:56  brennan
  * Initial revision
  * 
@@ -98,11 +101,11 @@ int DOSexec( command )
 }
 
 
-static int next_tmp ;
-static char *tmpdir ;
+static int next_tmp ;  /* index for naming temp files */
+static char *tmpdir ;  /* directory to hold temp files */
+
 
 /* put the name of a temp file in string buff */
-
 char *tmp_file_name( id )
   int id ;
 {
@@ -132,7 +135,7 @@ PTR  get_pipe( command, type, tmp_idp)
   { char xbuff[256] ;
     
     sprintf(xbuff, "%s > %s" , command, tmpfile) ;
-    DOSexec(xbuff) ;
+    tmp_idp[1] = DOSexec(xbuff) ;
     retval = (PTR) FINopen(tmpfile, 0) ;
   }
 
@@ -159,6 +162,3 @@ int close_fake_outpipe(command, tid)
 }
 
 #endif  /* MSDOS */
-
-
-

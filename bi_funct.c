@@ -10,10 +10,13 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/* $Log:	bi_funct.c,v $
- * Revision 5.1  91/12/05  07:55:35  brennan
+/* $Log: bi_funct.c,v $
+ * Revision 5.2  1992/07/08  15:43:41  brennan
+ * patch2: length returns.  I am a wimp
+ *
+ * Revision 5.1  1991/12/05  07:55:35  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 
@@ -38,9 +41,9 @@ static void  PROTO( fplib_err, (char *, double, char *) ) ;
 /* global for the disassembler */
 BI_REC  bi_funct[] = { /* info to load builtins */
 
+"length" , bi_length, 0, 1, /* special must come first */
 "index" , bi_index , 2, 2 ,
 "substr" , bi_substr, 2, 3,
-"length" , bi_length, 0, 1,
 "sprintf" , bi_sprintf, 1, 255,
 "sin", bi_sin , 1, 1 ,
 "cos", bi_cos , 1, 1 ,
@@ -59,16 +62,22 @@ BI_REC  bi_funct[] = { /* info to load builtins */
 (char *) 0, (PF_CP) 0, 0, 0 } ;
 
 
-
+/* load built-in functions in symbol table */
 void bi_funct_init()
-{ register BI_REC *p = bi_funct ;
+{ register BI_REC *p ; 
   register SYMTAB *stp ;
 
-  while ( p->name )
+  /* length is special (posix bozo) */
+  stp = insert(bi_funct->name) ;
+  stp->type = ST_LENGTH ;
+  stp->stval.bip = bi_funct ;
+
+  for( p = bi_funct + 1 ; p->name ; p++ )
   { stp = insert( p->name ) ;
     stp->type = ST_BUILTIN ;
-    stp->stval.bip = p++ ;
+    stp->stval.bip = p ;
   }
+
   /* seed rand() off the clock */
   { CELL c ;
 

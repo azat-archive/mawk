@@ -11,10 +11,13 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/*   $Log:	cast.c,v $
- * Revision 5.1  91/12/05  07:55:41  brennan
+/*   $Log: cast.c,v $
+ * Revision 5.2  1992/08/17  14:19:45  brennan
+ * patch2: After parsing, only bi_sprintf() uses string_buff.
+ *
+ * Revision 5.1  1991/12/05  07:55:41  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 
@@ -128,7 +131,9 @@ two:   cp++ ;
 
 void cast1_to_s( cp )
   register CELL *cp ;
-{ register int ival ;
+{ 
+  register int ival ;
+  char xbuff[260] ;
 
   switch( cp->type )
   { case C_NOINIT :  
@@ -139,12 +144,11 @@ void cast1_to_s( cp )
     case C_DOUBLE  :
 	
 	if ( (double) (ival = (int) cp->dval) == cp->dval )
-	    (void) sprintf(string_buff, "%d", ival) ;
+	    (void) sprintf(xbuff, "%d", ival) ;
 	else
-            (void) sprintf(string_buff ,
-            string(CONVFMT)->str, cp->dval) ;
+            (void) sprintf(xbuff , string(CONVFMT)->str, cp->dval) ;
 
-        cp->ptr = (PTR) new_STRING(string_buff) ;
+        cp->ptr = (PTR) new_STRING(xbuff) ;
         break ;
 
     case C_STRING :  return ;
@@ -159,7 +163,9 @@ void cast1_to_s( cp )
 
 void cast2_to_s( cp )
   register CELL *cp ;
-{ register int ival ;
+{ 
+  register int ival ;
+  char xbuff[260] ;
 
   switch( cp->type )
   { case C_NOINIT : 
@@ -169,12 +175,11 @@ void cast2_to_s( cp )
 
     case C_DOUBLE  :
 	if ( (double) (ival = (int) cp->dval) == cp->dval )
-	    (void) sprintf(string_buff, "%d", ival) ;
+	    (void) sprintf(xbuff, "%d", ival) ;
 	else
-            (void) sprintf(string_buff ,
-            string(CONVFMT)->str, cp->dval) ;
+            (void) sprintf(xbuff , string(CONVFMT)->str, cp->dval) ;
 
-        cp->ptr = (PTR) new_STRING(string_buff) ;
+        cp->ptr = (PTR) new_STRING(xbuff) ;
         break ;
 
     case C_STRING :  goto two ;
@@ -197,12 +202,11 @@ two:
 
     case C_DOUBLE  :
 	if ( (double) (ival = (int) cp->dval) == cp->dval )
-	    (void) sprintf(string_buff, "%d", ival) ;
+	    (void) sprintf(xbuff, "%d", ival) ;
 	else
-            (void) sprintf(string_buff ,
-            string(CONVFMT)->str, cp->dval) ;
+            (void) sprintf(xbuff , string(CONVFMT)->str, cp->dval) ;
 
-        cp->ptr = (PTR) new_STRING(string_buff) ;
+        cp->ptr = (PTR) new_STRING(xbuff) ;
         break ;
 
     case C_STRING :  return ;

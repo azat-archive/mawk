@@ -10,10 +10,10 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*$Log:	rexp3.c,v $
- * Revision 3.5  92/01/21  17:33:20  brennan
+/*$Log: rexp3.c,v $
+ * Revision 3.5  1992/01/21  17:33:20  brennan
  * added some casts so that character classes work with signed chars
- * 
+ *
  * Revision 3.4  91/10/29  10:54:09  brennan
  * SIZE_T
  * 

@@ -11,10 +11,13 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
-/* $Log:	scan.c,v $
- * Revision 5.2  92/02/21  14:16:53  brennan
+/* $Log: scan.c,v $
+ * Revision 5.3  1992/07/08  15:43:41  brennan
+ * patch2: length returns.  I am a wimp
+ *
+ * Revision 5.2  1992/02/21  14:16:53  brennan
  * fix:  getline <=
- * 
+ *
  * Revision 5.1  91/12/05  07:56:27  brennan
  * 1.1 pre-release
  * 
@@ -554,6 +557,18 @@ reswitch:
                       yylval.bip = stp->stval.bip ;
                       current_token = BUILTIN ;
                       break ;
+
+                case  ST_LENGTH  :
+
+		      yylval.bip = stp->stval.bip ;
+
+		      /* check for length alone, this is an ugly
+			 hack */
+                      while ( scan_code[ c = next() ] == SC_SPACE ) ;
+                      un_next() ;
+
+		      current_token = c == '(' ? BUILTIN : LENGTH ;
+		      break ;
 
                 case  ST_FIELD  :
                       yylval.cp = stp->stval.cp ;

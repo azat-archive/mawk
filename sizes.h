@@ -1,7 +1,7 @@
 
 /********************************************
 sizes.h
-copyright 1991, Michael D. Brennan
+copyright 1991, 1992.  Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -10,10 +10,13 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/* $Log:	sizes.h,v $
- * Revision 5.1  91/12/05  07:59:35  brennan
+/* $Log: sizes.h,v $
+ * Revision 5.2  1992/08/27  03:20:08  mike
+ * patch2: increase A_HASH_PRIME
+ *
+ * Revision 5.1  1991/12/05  07:59:35  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 /*  sizes.h  */
@@ -22,7 +25,7 @@ the GNU General Public License, version 2, 1991.
 #define  SIZES_H
 
 #if     ! HAVE_SMALL_MEMORY
-#define EVAL_STACK_SIZE  256  /* limit on recursion */
+#define EVAL_STACK_SIZE  256  /* initial size , can grow */
 /* number of fields at startup, must be a power of 2 
    and FBANK_SZ-1 must be divisible by 3! */
 #define  FBANK_SZ	256
@@ -49,7 +52,12 @@ the GNU General Public License, version 2, 1991.
      necessary */
 
 #define  HASH_PRIME  53
-#define  A_HASH_PRIME 37
+
+#if ! HAVE_SMALL_MEMORY
+#define  A_HASH_PRIME 199
+#else
+#define  A_HASH_PRIME  37
+#endif
 
 
 #define  MAX_COMPILE_ERRORS  5 /* quit if more than 4 errors */

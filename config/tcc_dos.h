@@ -12,10 +12,10 @@ the GNU General Public License, version 2, 1991.
 
 /* Turbo C under MSDOS */
 
-/* $Log:	tcc_dos.h,v $
- * Revision 4.2  91/10/29  09:37:54  brennan
+/* $Log: tcc_dos.h,v $
+ * Revision 4.2  1991/10/29  09:37:54  brennan
  * changes for 1.09
- * 
+ *
  * Revision 4.1  91/09/25  11:41:51  brennan
  * VERSION 1.0
  * 
