@@ -4,17 +4,56 @@ bi_funct.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
-
 /* $Log:	bi_funct.c,v $
+ * Revision 3.7.1.1  91/09/14  17:22:38  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.7  91/08/19  10:46:13  brennan
+ * fixed small bozo in bi_substr
+ * 
+ * Revision 3.6  91/08/13  06:50:47  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.5  91/08/03  05:03:50  brennan
+ * set RLENGTH to -1 on no match
+ * 
+ * Revision 3.4  91/07/22  12:31:15  brennan
+ * changed how srand() handles strings
+ * 
+ * Revision 3.3  91/06/28  04:16:03  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.2  91/06/28  04:14:11  brennan
+ * srand() now returns previous seed (posix).
+ * 
+ * Revision 3.1  91/06/08  06:14:38  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.9  91/06/08  06:00:22  brennan
+ * changed how eof is marked on main_fin
+ * 
+ * Revision 2.8  91/06/03  07:47:56  brennan
+ * added a TEST2 to bi_substr (will I ever get it right?)
+ * 
+ * Revision 2.7  91/05/16  12:19:23  brennan
+ * cleanup of machine dependencies
+ * 
+ * Revision 2.6  91/05/06  15:00:37  brennan
+ * flush output before fork
+ * 
+ * Revision 2.5  91/04/29  07:45:00  brennan
+ * plugged big memory leak and fixed small bozo in bi_substr
+ * plugged small memory leak in gsub()
+ * 
+ * Revision 2.4  91/04/26  06:59:41  brennan
+ * use builtin random number generator for portability
+ * 
  * Revision 2.3  91/04/17  06:34:00  brennan
  * index("","") should be 1 not 0 for consistency with match("",//)
  * 
@@ -39,10 +78,6 @@ program in source or binary form.
 #include "repl.h"
 #include <math.h>
 
-#ifndef  BSD43
-void PROTO( srand48, (long) ) ;
-double PROTO( drand48, (void) ) ;
-#endif
 
 /* statics */
 static STRING *PROTO(gsub, (PTR, CELL *, char *, int) ) ;
@@ -67,8 +102,13 @@ BI_REC  bi_funct[] = { /* info to load builtins */
 "close", bi_close, 1, 1,
 "system", bi_system, 1, 1,
 
-#if  DOS   /* this might go away, when pipes and system are added
-	      for DOS  */
+#if  MSDOS   /* this might go away, when pipes and system are added
+              for MSDOS  */
+"errmsg", bi_errmsg, 1, 1,
+#endif
+
+#ifdef THINK_C	/* I doubt this will ever go away for the Macintosh
+		   Toy Operating System */
 "errmsg", bi_errmsg, 1, 1,
 #endif
 
@@ -129,7 +169,7 @@ char *str_str(target, key , key_len)
   }
   key_len-- ;
   while ( target = strchr(target, *key) )
-        if ( memcmp(target+1, key+1, key_len) == 0 ) return target ;
+        if ( memcmp(target+1, key+1, SIZE_T(key_len)) == 0 ) return target ;
         else target++ ;
   /*failed*/
   return (char *) 0 ;
@@ -170,72 +210,83 @@ CELL *bi_substr(sp)
   CELL *sp ;
 { int n_args, len ;
   register int i, n ;
-  char *s ;    /* substr(s, i, n) */
-  STRING *sval ;
+  STRING *sval ;  /* substr(sval->str, i, n) */
 
   n_args = sp->type ;
   sp -= n_args ;
-  if ( sp->type < C_STRING )  cast1_to_s(sp) ;
-  s = (sval = string(sp)) -> str ;
+  if ( sp->type != C_STRING )  cast1_to_s(sp) ;
+      /* don't use < C_STRING shortcut */
+  sval = string(sp) ;
+
+  if ( (len = sval->len) == 0 )  /* substr on null string */
+  {  if ( n_args == 3 )  cell_destroy(sp+2) ;
+     cell_destroy(sp+1) ;
+     return sp ;
+  }
 
   if ( n_args == 2 )  
   { n = 0x7fff  ;  /* essentially infinity */
     if ( sp[1].type != C_DOUBLE ) cast1_to_d(sp+1) ; 
   }
   else
-  { if ( sp[1].type + sp[2].type != TWO_STRINGS ) cast2_to_d(sp+1) ;
+  { if ( TEST2(sp+1) != TWO_DOUBLES ) cast2_to_d(sp+1) ;
     n = (int) sp[2].dval ;
   }
   i = (int) sp[1].dval - 1 ; /* i now indexes into string */
 
-
-  if ( (len = strlen(s)) == 0 )  return sp ;
-  /* get to here is s is not the null string */
   if ( i < 0 ) { n += i ; i = 0 ; }
   if ( n > len - i )  n = len - i ;
 
   if ( n <= 0 )  /* the null string */
-  { free_STRING( sval ) ;
+  { 
     sp->ptr = (PTR) &null_str ;
     null_str.ref_cnt++ ;
   }
   else  /* got something */
   { 
     sp->ptr = (PTR) new_STRING((char *)0, n) ;
-    (void) memcpy(string(sp)->str, s+i, n) ;
-    string(sp)->str[n] = 0 ;
+    (void) memcpy(string(sp)->str, sval->str + i, SIZE_T(n)) ;
   }
+
+  free_STRING(sval) ;
   return sp ;
 } 
 
 /*
   match(s,r)
-  sp[0] holds s, sp[-1] holds r
+  sp[0] holds r, sp[-1] holds s
 */
 
 CELL *bi_match(sp)
   register CELL *sp ;
-{ double d ;
+{ 
   char *p ;
   unsigned length ;
 
   if ( sp->type != C_RE )  cast_to_RE(sp) ;
   if ( (--sp)->type < C_STRING )  cast1_to_s(sp) ;
 
-  if ( p = REmatch(string(sp)->str, (sp+1)->ptr, &length) )
-      d = (double) ( p - string(sp)->str + 1 ) ;
-  else  d = 0.0 ;
-
   cell_destroy( & bi_vars[RSTART] ) ;
   cell_destroy( & bi_vars[RLENGTH] ) ;
   bi_vars[RSTART].type = C_DOUBLE ;
-  bi_vars[RSTART].dval = d ;
   bi_vars[RLENGTH].type = C_DOUBLE ;
-  bi_vars[RLENGTH].dval = (double) length ;
+
+  p = REmatch(string(sp)->str, (sp+1)->ptr, &length) ;
+
+  if ( p )
+  { sp->dval = (double) ( p - string(sp)->str + 1 ) ;
+    bi_vars[RLENGTH].dval = (double) length ;
+  }
+  else
+  { sp->dval = 0.0 ;
+    bi_vars[RLENGTH].dval = -1.0 ; /* posix */
+  }
 
   free_STRING(string(sp)) ;
-    
-  sp->type = C_DOUBLE ;  sp->dval = d ;
+  sp->type = C_DOUBLE ;
+
+  bi_vars[RSTART].dval = sp->dval ;
+
   return sp ;
 }
 
@@ -377,42 +428,80 @@ CELL *bi_sqrt(sp)
 
 #ifdef  __TURBOC__
 long  biostime(int, long) ;
-#define  time(x)  (biostime(0,0L)<<4)
+#define  time(x)  biostime(0,0L)
+#else
+#ifdef THINK_C
+#include <time.h>
 #else
 #include <sys/types.h>
-
-#if 0
-#ifndef  STARDENT
-#include <sys/timeb.h>
 #endif
 #endif
 
-#endif
+
+/* For portability, we'll use our own random number generator , taken
+   from:  Park, SK and Miller KW, "Random Number Generators:
+   Good Ones are Hard to Find", CACM, 31, 1192-1201, 1988.
+*/
+
+static long seed ;  /* must be >=1 and <= 2^31-1 */
+static CELL cseed ; /* argument of last call to srand() */
+
+#define         M       0x7fffffff   /* 2^31-1 */
 
 CELL *bi_srand(sp)
   register CELL *sp ;
-{ register long l ; 
-  void srand48() ;
+{ CELL c ;
 
-  if ( sp-- -> type )  /* user seed */
-  { if ( sp->type != C_DOUBLE )  cast1_to_d(sp) ;
-    l = (long) sp->dval ; }
-  else
-  { l = (long) time( (time_t *) 0 ) ;
-    (++sp)->type = C_DOUBLE ;
-    sp->dval = (double) l ;
+  if ( sp->type == 0 ) /* seed off clock */
+  { (void) cellcpy(sp, &cseed) ;
+    cell_destroy(&cseed) ;
+    cseed.type = C_DOUBLE ;
+    cseed.dval = (double) time((time_t*) 0) ;
   }
-  srand48(l) ;
+  else /* user seed */
+  { sp-- ;
+    /* swap cseed and *sp ; don't need to adjust ref_cnts */
+    c = *sp ; *sp = cseed ; cseed = c ;
+  }
+
+  /* The old seed is now in *sp ; move the value in cseed to
+     seed in range 1 to M */
+
+  (void) cellcpy(&c, &cseed) ;
+  if ( c.type == C_NOINIT )  cast1_to_d(&c) ;
+
+  seed =  c.type == C_DOUBLE ? ((int)c.dval & M) % M + 1 :
+                        hash(string(&c)->str) % M + 1 ;
+
+  cell_destroy(&c) ;
+
+  /* crank it once so close seeds don't give a close 
+       first result  */
+#define   A     16807
+#define   Q     127773   /* M/A */
+#define   R     2836     /* M%A */
+  seed = A * (seed%Q) - R * (seed/Q) ;
+  if ( seed <= 0 )  seed += M ;
+
   return sp ;
 }
     
 CELL *bi_rand(sp)
   register CELL *sp ;
 { 
+  register long test ;
+
+  test = A * (seed%Q) - R * (seed/Q) ;
+  if ( test <= 0 )  test += M ;
 
   (++sp)->type = C_DOUBLE ;
-  sp->dval = drand48() ;
+  sp->dval = (double)( seed = test ) / (double) M ;
   return sp ;
+
+#undef   A
+#undef   M
+#undef   Q
+#undef   R
 }
 
 /*************************************************
@@ -432,14 +521,16 @@ CELL *bi_close(sp)
   return sp ;
 }
 
-#if   ! DOS
+#if   ! MSDOS
+#ifndef THINK_C
 CELL *bi_system(sp)
   CELL *sp ;
 { int pid ;
   unsigned ret_val ;
 
-  if ( !shell ) shell = (shell = getenv("SHELL")) ? shell : "/bin/sh" ;
   if ( sp->type < C_STRING ) cast1_to_s(sp) ;
+
+  fflush(stdout) ; fflush(stderr) ;
 
   switch( pid = fork() )
   { case -1 :  /* fork failed */
@@ -468,7 +559,28 @@ CELL *bi_system(sp)
   return sp ;
 }
 
-#else   /*  DOS   */
+#else   /* THINK_C */
+
+CELL *bi_system( sp )
+  register CELL *sp ;
+{ rt_error("no system call for the Macintosh Toy Operating System!!!") ;
+  return sp ;
+}
+
+/* prints errmsgs for the Macintosh  */
+CELL *bi_errmsg(sp)
+  register CELL *sp ;
+{
+  cast1_to_s(sp) ;
+  fprintf(stderr, "%s\n", string(sp)->str) ;
+  free_STRING(string(sp)) ;
+  sp->type = C_DOUBLE ;
+  sp->dval = 0.0 ;
+  return sp ;
+}
+
+#endif
+#else   /*  MSDOS   */
 
 CELL *bi_system( sp )
   register CELL *sp ;
@@ -476,7 +588,7 @@ CELL *bi_system( sp )
   return sp ;
 }
 
-/* prints errmsgs for DOS  */
+/* prints errmsgs for MSDOS  */
 CELL *bi_errmsg(sp)
   register CELL *sp ;
 {
@@ -512,10 +624,9 @@ CELL *bi_getline(sp)
   { 
     case 0 :
         sp-- ;
-        if ( main_fin == (FIN *) -1 && ! open_main() )
-                goto open_failure ;
+        if ( ! main_fin )  open_main() ;
     
-        if ( ! main_fin || !(p = FINgets(main_fin, &len)) )
+        if ( ! (p = FINgets(main_fin, &len)) )
                 goto  eof ;
 
         cp = (CELL *) sp->ptr ;
@@ -561,7 +672,7 @@ CELL *bi_getline(sp)
     else
     { tc.type = C_MBSTRN ;
       tc.ptr = (PTR) new_STRING((char *) 0, len) ;
-      (void) memcpy( string(&tc)->str, p, len) ;
+      (void) memcpy( string(&tc)->str, p, SIZE_T(len)) ;
     }
 
     if ( cp  >= field && cp < field+NUM_FIELDS )
@@ -623,7 +734,7 @@ CELL *bi_sub( sp )
     if ( (sp+1)->type == C_REPLV ) 
     { STRING *sval = new_STRING((char *) 0, middle_len) ;
 
-      (void) memcpy(sval->str, middle, middle_len) ;
+      (void) memcpy(sval->str, middle, SIZE_T(middle_len)) ;
       (void) replv_to_repl(sp+1, sval) ;
       free_STRING(sval) ;
     }
@@ -635,14 +746,14 @@ CELL *bi_sub( sp )
     { char *p = string(&tc)->str ;
 
       if ( front_len )
-      { (void) memcpy(p, front, front_len) ;
+      { (void) memcpy(p, front, SIZE_T(front_len)) ;
         p += front_len ;
       }
       if ( string(sp+1)->len )
-      { (void) memcpy(p, string(sp+1)->str, string(sp+1)->len) ;
+      { (void) memcpy(p, string(sp+1)->str, SIZE_T(string(sp+1)->len)) ;
         p += string(sp+1)->len ;
       }
-      if ( back_len )  (void) memcpy(p, back, back_len) ;
+      if ( back_len )  (void) memcpy(p, back, SIZE_T(back_len)) ;
     }
 
     if ( cp  >= field && cp < field+NUM_FIELDS )
@@ -670,7 +781,8 @@ static  unsigned repl_cnt ;  /* number of global replacements */
 
 static STRING *gsub( re, repl, target, flag)
   PTR  re ;
-  CELL *repl ;  /* always of type REPL or REPLV */
+  CELL *repl ;  /* always of type REPL or REPLV, 
+       destroyed by caller */
   char *target ;
   int flag ; /* if on, match of empty string at front is OK */
 { char *front, *middle ;
@@ -688,7 +800,8 @@ static STRING *gsub( re, repl, target, flag)
   { /* match at front that's not allowed */
 
     if ( *target == 0 )  /* target is empty string */
-    { null_str.ref_cnt++ ;
+    { repl_destroy(&xrepl) ;
+      null_str.ref_cnt++ ;
       return & null_str ;
     }
     else
@@ -717,7 +830,7 @@ static STRING *gsub( re, repl, target, flag)
     if ( repl->type == C_REPLV )
     { STRING *sval = new_STRING((char *) 0, middle_len) ;
 
-      (void) memcpy(sval->str, middle, middle_len) ;
+      (void) memcpy(sval->str, middle, SIZE_T(middle_len)) ;
       (void) replv_to_repl(repl, sval) ;
       free_STRING(sval) ;
     }
@@ -729,12 +842,12 @@ static STRING *gsub( re, repl, target, flag)
   { char *p = ret_val->str ;
 
     if ( front_len )
-    { (void) memcpy(p, front, front_len) ; p += front_len ; }
+    { (void) memcpy(p, front, SIZE_T(front_len)) ; p += front_len ; }
     if ( string(repl)->len )
-    { (void) memcpy(p, string(repl)->str, string(repl)->len) ;
+    { (void) memcpy(p, string(repl)->str, SIZE_T(string(repl)->len)) ;
       p += string(repl)->len ;
     }
-    if ( back->len ) (void) memcpy(p, back->str, back->len) ;
+    if ( back->len ) (void) memcpy(p, back->str, SIZE_T(back->len)) ;
   }
 
   /* cleanup, repl is freed by the caller */

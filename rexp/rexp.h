@@ -3,24 +3,53 @@
 rexp.h
 copyright 1991, Michael D. Brennan
 
-This is a source file for mawk an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+This is a source file for mawk, an implementation of
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*  rexp.h    */
+/*$Log:	rexp.h,v $
+ * Revision 3.4  91/08/13  09:10:02  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.3  91/06/15  09:40:25  brennan
+ * gcc defines __STDC__ but might not have stdlib.h
+ * 
+ * Revision 3.2  91/06/10  16:18:19  brennan
+ * changes for V7
+ * 
+ * Revision 3.1  91/06/07  10:33:18  brennan
+ * VERSION 0.995
+ * 
+ * Revision 1.3  91/06/05  08:57:57  brennan
+ * removed RE_xmalloc()
+ * 
+ * Revision 1.2  91/06/03  07:23:26  brennan
+ * changed type of RE_error_trap
+ * 
+ * Revision 1.1  91/06/03  07:05:41  brennan
+ * Initial revision
+ * 
+*/
 
 #ifndef  REXP_H
 #define  REXP_H
 
-#include  <string.h>
+#ifdef THINK_C
+#define MAWK		/* THINK C doesn't allow compile-time definitions */
+#define SIZE_T(x) (size_t)(x)
+#endif
+
+#ifndef SIZE_T
+#define SIZE_T(x) (x)
+#endif
+
 #include  <stdio.h>
 #include  <setjmp.h>
+
+char *strchr() ;
 
 #ifndef   PROTO
 #ifdef    __STDC__
@@ -32,21 +61,16 @@ program in source or binary form.
 
 #ifdef  __STDC__
 #define  VOID   void
-#include <stdlib.h>
 #else
 #define  VOID   char
-char *malloc(), *realloc() ;
-void free() ;
 #endif
 
-/* user can change this  */
+VOID  *malloc(), *realloc() ;
+void free() ;
 
-#define  RE_malloc(x)    RE_xmalloc(x)
-#define  RE_realloc(x,l)   RE_xrealloc(x,l)
-#define  RE_free(x)      free(x)
 
-VOID  *PROTO( RE_xmalloc, (unsigned) ) ;
-VOID  *PROTO( RE_xrealloc, (void *,unsigned) ) ;
+VOID  *PROTO( RE_malloc, (unsigned) ) ;
+VOID  *PROTO( RE_realloc, (void *,unsigned) ) ;
 
 
 /*  finite machine  state types  */
@@ -128,7 +152,7 @@ char  *ss ;  /*   save the match start -- only used by REmatch */
 
 /*  error  trap   */
 extern int REerrno ;
-MACHINE   PROTO(RE_error_trap, (int) ) ;
+void   PROTO(RE_error_trap, (int) ) ;
 
 
 MACHINE   PROTO( RE_u, (void) ) ;

@@ -4,16 +4,31 @@ symtype.h
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	symtype.h,v $
+ * Revision 3.4.1.1  91/09/14  17:24:24  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.4  91/08/13  06:52:14  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.3  91/06/29  09:47:34  brennan
+ * Only track NR if needed
+ * 
+ * Revision 3.2  91/06/28  04:17:42  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/07  10:28:24  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.2  91/05/15  12:07:43  brennan
+ * dval hash table for arrays
+ * 
  * Revision 2.1  91/04/08  08:24:14  brennan
  * VERSION 0.97
  * 
@@ -39,23 +54,39 @@ unsigned char min_args, max_args ;
 
 /* array hash nodes */
 
+/* string node */
 typedef  struct anode {
 struct anode *link ;
 STRING *sval ;
 CELL   *cp ;
-}  ANODE, **ARRAY ;
+}  ANODE ;
+
+/* double node */
+typedef struct d_anode {
+struct d_anode *dlink ;
+ANODE *ap ;
+double dval ;
+} D_ANODE ;
+
+typedef struct array {
+ANODE *link ;
+D_ANODE *dlink ;
+} *ARRAY ;
+
+#define  CREATE         1
+#define  NO_CREATE      0
 
 /* note ARRAY is a ptr to a hash table */
 
-CELL *PROTO(array_find, (ARRAY,void *, int) ) ;
-int PROTO(array_test, (ARRAY, STRING *) ) ;
+CELL *PROTO(array_find, (ARRAY,CELL *, int) ) ;
 INST *PROTO(array_loop, (INST *, CELL *, CELL *) ) ;
-void PROTO(array_delete, (ARRAY, STRING *) ) ;
+void PROTO(array_delete, (ARRAY, CELL *) ) ;
 CELL *PROTO(array_cat, (CELL *, int) ) ;
 void PROTO(array_free, (ARRAY) ) ;
 
 #define new_ARRAY() (ARRAY)memset(zmalloc(A_HASH_PRIME *\
-                        sizeof(ANODE*)), 0, A_HASH_PRIME*sizeof(ANODE*))
+                        sizeof(struct array)),\
+                        0 , SIZE_T(A_HASH_PRIME*sizeof(struct array)))
 
 extern  ARRAY  Argv ;
 
@@ -91,9 +122,10 @@ void  PROTO( fdump, (void) ) ;
 #define  ST_FIELD   5  /* a cell ptr to a field */
 #define  ST_FUNCT   6
 #define  ST_LENGTH  7  /* length is special */
-#define  ST_LOCAL_NONE  8
-#define  ST_LOCAL_VAR   9
-#define  ST_LOCAL_ARRAY 10
+#define  ST_NR      8  /* and so is NR */
+#define  ST_LOCAL_NONE  9
+#define  ST_LOCAL_VAR   10
+#define  ST_LOCAL_ARRAY 11
 
 #define  is_local(stp)   ((stp)->type>=ST_LOCAL_NONE)
 

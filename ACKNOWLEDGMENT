@@ -1,0 +1,16 @@
+
+
+Carl Mascott ported mawk to V7 and in the process rooted out
+some subtle (and not so subtle) bugs.
+
+Ian Searle ported mawk to System V and put up with my insane
+attempts to get fpe exception trapping off.
+
+An anonymous reviewer for comp.sources.reviewed did the
+MSC and Mac ports and wrote .bat files for the tests.
+(Everything in msdos/dostest is his/her work).
+Another or maybe the same reviewer did the Dynix port.
+
+Layne Lommen ported mawk to the ApolloSR10.3.
+
+

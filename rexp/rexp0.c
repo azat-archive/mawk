@@ -3,17 +3,33 @@
 rexp0.c
 copyright 1991, Michael D. Brennan
 
-This is a source file for mawk an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+This is a source file for mawk, an implementation of
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*  rexp0.c   */
+/*$Log:	rexp0.c,v $
+ * Revision 3.4  91/08/13  09:10:05  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.3  91/07/19  07:29:24  brennan
+ * backslash at end of regular expression now stands for backslash
+ * 
+ * Revision 3.2  91/07/19  06:58:23  brennan
+ * removed small bozo in processing of escape characters
+ * 
+ * Revision 3.1  91/06/07  10:33:20  brennan
+ * VERSION 0.995
+ * 
+ * Revision 1.2  91/06/05  08:59:36  brennan
+ * changed RE_free to free
+ * 
+ * Revision 1.1  91/06/03  07:10:15  brennan
+ * Initial revision
+ * 
+*/
 
 /*  lexical scanner  */
 
@@ -71,8 +87,7 @@ int   RE_lex( mp )
      case T_RP :
            lp++ ;  return  prev = c ;
      case T_SLASH :
-           if ( lp[1] != 0 )  break ;
-           /* else fall thru */
+           break ;
 
      case 0   :   return 0 ;
      
@@ -262,7 +277,7 @@ static int  do_class( start, mp)
   *start = q + 1 ;
 
   bvp = (BV *) RE_malloc( sizeof(BV) ) ;
-  (void) memset( bvp, 0, sizeof(BV) ) ;
+  (void) memset( bvp, 0, SIZE_T(sizeof(BV)) ) ;
 
   comp_flag = *p == '^' ? p++ , 1 : 0 ;
   prev = -1 ;  /* indicates  -  cannot be part of a range  */
@@ -339,11 +354,11 @@ static BV *store_bvp( bvp )
   /* put bvp in bv_next as a sentinal */
   *bv_next = bvp ;
   p = bv_base ;
-  while ( memcmp(*p, bvp, sizeof(BV)) )  p++ ;
+  while ( memcmp(*p, bvp, SIZE_T(sizeof(BV))) )  p++ ;
 
   if ( p == bv_next )  /* it is new */
         bv_next++ ;
-  else  /* we already have it */  RE_free(bvp) ;
+  else  /* we already have it */  free(bvp) ;
 
   return *p ;
 }
@@ -373,7 +388,18 @@ static int ctohex( c )
   return NOT_HEX ;
 }
 
-static char escape_test[] = "n\nt\tb\br\rf\fa\07v\013" ;
+#define  ET_END     7
+
+static struct { char in , out ; } escape_test[ET_END+1] = {
+'n' , '\n',
+'t' , '\t',
+'f' , '\f',
+'b' , '\b',
+'r' , '\r',
+'a' , '\07',
+'v' , '\013',
+0 , 0 } ;
+
 
 /*-----------------
   return the char 
@@ -386,12 +412,15 @@ static int escape(start_p)
 { register char *p = *start_p ;
   register unsigned x ;
   unsigned xx ;
-  char *t ;
+  int i ;
 
   
-  if ( t = strchr(escape_test, *p) )
+  escape_test[ET_END].in = *p ;
+  i = 0 ;
+  while ( escape_test[i].in != *p ) i++ ;
+  if ( i != ET_END )  /* in table */
   { *start_p = p + 1 ;
-    return  t[1] ;
+    return  escape_test[i].out ;
   }
 
   if ( isoctal(*p) )
@@ -405,7 +434,7 @@ static int escape(start_p)
     return  x & 0xff ;
   }
 
-  if ( *p == 0 )  return 0 ;
+  if ( *p == 0 )  return '\\' ;
 
   if ( *p++ == 'x' ) /* might be a hex digit */
   {  if ( (x = ctohex(*p)) == NOT_HEX ) 

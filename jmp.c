@@ -4,16 +4,28 @@ jmp.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	jmp.c,v $
+ * Revision 3.3.1.1  91/09/14  17:23:33  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.3  91/08/13  06:51:38  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.2  91/06/28  04:16:53  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/07  10:27:42  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.2  91/05/22  07:30:39  brennan
+ * fixed stack underflow checks to work correctly on large model DOS
+ * 
  * Revision 2.1  91/04/08  08:23:19  brennan
  * VERSION 0.97
  * 
@@ -70,7 +82,7 @@ static   struct BC_node  **BC_sp ;
 
 static struct loop_code {
 INST *code ;
-unsigned short len ;
+unsigned len ;
 }  *loop_code_stack , *lc_sp ;
 
 /*--------------------------------------*/
@@ -95,15 +107,20 @@ void jmp_stacks_cleanup()
 /*--------------------------------------*/
 /* operations on the jmp_stack */
 
-void code_jmp( jtype, target)
-  int jtype ; INST *target ;
+void code_jmp( jtype, target, expr_start)
+  int jtype ; 
+  INST *target ;
+  INST *expr_start ; /* used to recognize constant expressions,
+	   which can only be _PUSHC , <address>  */
 { 
   if (error_state)  return ;
 
   /* check if a constant expression will be at top of stack,
      if so replace conditional jump with jump */
 
-  if ( code_ptr[-2].op == _PUSHC && jtype != _JMP )
+  if ( jtype != _JMP &&
+       code_ptr - 2 == expr_start &&
+       code_ptr[-2].op == _PUSHC )
   { int t = test( (CELL *) code_ptr[-1].ptr ) ;
     if ( jtype == _JZ && ! t ||
          jtype == _JNZ && t )
@@ -131,7 +148,7 @@ void patch_jmp(target)  /* patch a jump on the jmp_stack */
 
   if ( ! error_state )
   {
-    if ( jmp_sp <= jmp_stack-1 ) bozo("jmp stack underflow") ;
+    if ( jmp_sp+1 <= jmp_stack ) bozo("jmp stack underflow") ;
     source = *jmp_sp-- ;
     source[1].op = target - source ;
   }
@@ -175,7 +192,7 @@ INST *B_address, *C_address ;
 { register struct BC_node *p , *q ;
 
   if (error_state) return ;
-  if ( BC_sp <= BC_stack-1) bozo("underflow on BC stack") ;
+  if ( BC_sp+1 <= BC_stack ) bozo("underflow on BC stack") ;
   p = *BC_sp-- ;
   while ( p )
   { p->jmp[1].op = (p->type=='B' ? B_address : C_address) - p->jmp ;
@@ -197,9 +214,9 @@ void code_push( p, len)
 
   if ( len )
   { lc_sp->code = (INST *) zmalloc(sizeof(INST) * len) ;
-    (void) memcpy(lc_sp->code, p, sizeof(INST) * len) ; }
+    (void) memcpy(lc_sp->code, p, SIZE_T(sizeof(INST) * len)) ; }
   else  lc_sp->code = (INST *) 0 ;
-  lc_sp->len = (unsigned short) len ;
+  lc_sp->len = len ;
 }
 
 /* copy the code at the top of the loop code stack to target.
@@ -209,9 +226,9 @@ unsigned code_pop(target)
   INST *target ;
 { 
   if (error_state)  return 0 ;
-  if ( lc_sp <= loop_code_stack-1 )  bozo("loop code stack underflow") ;
+  if ( lc_sp+1 <= loop_code_stack )  bozo("loop code stack underflow") ;
   if ( lc_sp->len )
-  { (void) memcpy(target, lc_sp->code, lc_sp->len * sizeof(INST)) ;
+  { (void) memcpy(target, lc_sp->code, SIZE_T(lc_sp->len * sizeof(INST))) ;
     zfree(lc_sp->code, sizeof(INST)*lc_sp->len) ; }
   return lc_sp-- -> len ;
 }

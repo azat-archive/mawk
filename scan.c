@@ -4,17 +4,60 @@ scan.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
 /* $Log:	scan.c,v $
+ * Revision 3.7.1.1  91/09/14  17:24:11  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.7  91/08/13  06:52:04  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.6  91/07/19  07:51:28  brennan
+ * escape sequence now recognized in command line assignments
+ * 
+ * Revision 3.5  91/06/29  09:47:27  brennan
+ * Only track NR if needed
+ * 
+ * Revision 3.4  91/06/28  04:17:31  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.3  91/06/24  07:18:40  brennan
+ * no longer recognize \'
+ * 
+ * Revision 3.2  91/06/15  09:05:16  brennan
+ * some casting of [unsigned] char* to make gcc happy
+ * 
+ * Revision 3.1  91/06/07  10:28:15  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.9  91/06/06  09:42:08  brennan
+ * added HAVE_FCNTL
+ * 
+ * Revision 2.8  91/06/04  06:47:34  brennan
+ * removed <string.h>
+ * 
+ * Revision 2.7  91/06/03  07:51:21  brennan
+ * added work around for sun4, 4.0.3, strtod() bug
+ * scanner eats semi-colons in outer blocks for compatibility
+ * 
+ * Revision 2.6  91/05/29  14:26:09  brennan
+ * -V option for version
+ * 
+ * Revision 2.5  91/05/28  15:18:13  brennan
+ * removed STRING_BUFF back to temp_buff.string_buff
+ * 
+ * Revision 2.4  91/05/28  09:05:11  brennan
+ * removed main_buff
+ * 
+ * Revision 2.3  91/04/29  07:47:23  brennan
+ * INC_or_DEC to support grammar changes
+ * 
  * Revision 2.2  91/04/09  12:39:27  brennan
  * added static to funct decls to satisfy STARDENT compiler
  * 
@@ -32,8 +75,11 @@ program in source or binary form.
 #include  "init.h"
 #include  "fin.h"
 #include  "repl.h"
+
+#if HAVE_FCNTL_H
 #include  <fcntl.h>
-#include  <string.h>
+#endif
+
 #include  "files.h"
 
 
@@ -41,11 +87,12 @@ program in source or binary form.
 static void PROTO(buff_create, (char *) ) ;
 static int PROTO(slow_next, (void) ) ;
 static void PROTO(eat_comment, (void) ) ;
+static void PROTO(eat_semi_colon, (void) ) ;
 static double PROTO(collect_decimal, (int, int *) ) ;
 static int PROTO(collect_string, (void) ) ;
 static int  PROTO(collect_RE, (void) ) ;
-static char *PROTO(rm_escape, (char *) ) ;
 
+extern  short  NR_reference ;
 
 /*-----------------------------
   program file management
@@ -70,12 +117,16 @@ static void buff_create(s)
   {
     if ( s[0] == '-' && s[1] == 0 ) program_fd = 0 ;
     else
+#ifdef THINK_C
+    if ( (program_fd = open(s, O_RDONLY)) == -1 )
+#else
     if ( (program_fd = open(s, O_RDONLY, 0)) == -1 )
+#endif
     { errmsg( errno, "cannot open %s", s) ; mawk_exit(1) ; }
 
     buffp = buffer = (unsigned char *) zmalloc( BUFFSZ+1 ) ;
 
-    eof_flag = fillbuff(program_fd, buffer, BUFFSZ) < BUFFSZ ;
+    eof_flag = fillbuff(program_fd, (char *) buffer, BUFFSZ) < BUFFSZ ;
   }
 }
 
@@ -83,7 +134,10 @@ void scan_cleanup()
 { 
   if ( program_fd >= 0 ) zfree(buffer, BUFFSZ+1) ;
   if ( program_fd > 0 )  (void) close(program_fd) ;
+  /* redefine SPACE as [ \t\r\n] */
   scan_code['\n'] = SC_SPACE ;
+  scan_code['\f'] = SC_UNEXPECTED ; /*value doesn't matter */
+  scan_code['\013'] = SC_UNEXPECTED ;
 }
 
 
@@ -134,7 +188,7 @@ static int slow_next()
   if ( *buffp == 0  )
       if ( !eof_flag ) 
       { buffp = buffer ;
-        eof_flag = fillbuff(program_fd, buffer,BUFFSZ) < BUFFSZ ;
+        eof_flag = fillbuff(program_fd, (char *)buffer,BUFFSZ) < BUFFSZ ;
       }
 
   return *buffp++ ; /* note can un_next() , eof which is zero */
@@ -145,6 +199,21 @@ static void eat_comment()
 
   while ( (c = next()) != '\n' && scan_code[c] ) ;
   un_next() ;
+}
+
+/* this is how we handle extra semi-colons that are
+   now allowed to separate pattern-action blocks
+
+   A proof that they are useless clutter to the language:
+   we throw them away
+*/
+
+static  void  eat_semi_colon()
+/* eat one semi-colon on the current line */
+{ register int c ;
+
+  while ( scan_code[c = next()] == SC_SPACE )  ;
+  if ( c != ';' )  un_next() ;
 }
 
 void eat_nl() /* eat all space including newlines */
@@ -208,10 +277,36 @@ reswitch:
           ct_ret(LBRACE) ;
 
       case  SC_PLUS  :
-          test2_ret('+', INC, '=', ADD_ASG, PLUS ) ;
+          switch( next() )
+          {
+            case '+' :  
+                yylval.ival = '+' ;
+                temp_buff.string_buff[0] = 
+                     temp_buff.string_buff[1] = '+' ;
+                temp_buff.string_buff[2] = 0 ;
+                ct_ret(INC_or_DEC) ;
+
+            case  '=' :
+                ct_ret(ADD_ASG) ;
+
+            default :  un_next() ; ct_ret(PLUS) ;
+          }
 
       case  SC_MINUS :
-          test2_ret('-', DEC, '=', SUB_ASG, MINUS ) ;
+          switch( next() )
+          {
+            case '-' :  
+                yylval.ival = '-' ;
+                temp_buff.string_buff[0] = 
+                     temp_buff.string_buff[1] = '-' ;
+                temp_buff.string_buff[2] = 0 ;
+                ct_ret(INC_or_DEC) ;
+
+            case  '=' :
+                ct_ret(SUB_ASG) ;
+
+            default :  un_next() ; ct_ret(MINUS) ;
+          }
 
       case  SC_COMMA :  eat_nl() ; ct_ret(COMMA) ;
 
@@ -307,12 +402,25 @@ reswitch:
       case  SC_RBRACE :
           if ( --brace_cnt < 0 )
           { compile_error("extra '}'" ) ;
+            eat_semi_colon() ;
             brace_cnt = 0 ; goto reswitch ; }
 
           if ( (c = current_token) == NL || c == SEMI_COLON 
                || c == SC_FAKE_SEMI_COLON  || c == RBRACE  )
-          { eat_nl() ; ct_ret(RBRACE) ; }
+          { 
+            /* if the brace_cnt is zero , we've completed
+               a pattern action block. If the user insists
+               on adding a semi-colon on the same line
+               we will eat it.  Note what we do below:
+               physical law -- conservation of semi-colons */
 
+            if ( brace_cnt == 0 )  eat_semi_colon() ;
+            eat_nl() ;
+            ct_ret(RBRACE) ;
+          }
+
+          /* supply missing semi-colon to statement that
+             precedes a '}' */
           brace_cnt++ ; un_next() ;
           current_token = SC_FAKE_SEMI_COLON ;
           return  SEMI_COLON ;
@@ -394,6 +502,11 @@ reswitch:
                       }
                       un_next() ;
                       break ;
+
+	        case  ST_NR  :
+		      NR_reference = 1 ;
+		      stp->type = ST_VAR ;
+		      /* fall thru */
                         
                 case ST_VAR :
                 case  ST_ARRAY :
@@ -494,10 +607,17 @@ static double collect_decimal(c, flag)
     }
 
   errno = 0 ; /* check for overflow/underflow */
-  d = strtod( temp_buff.string_buff, &endp ) ;
+  d = strtod( temp_buff.string_buff, (char **)&endp ) ;
+
+#ifndef  STRTOD_UNDERFLOW_ON_ZERO_BUG
   if ( errno )
       compile_error( "%s : decimal %sflow" , temp_buff.string_buff,
         d == 0.0 ? "under" : "over") ;
+#else /* sun4 bug */
+  if ( errno && d != 0.0 )
+      compile_error( "%s : decimal overflow", temp_buff.string_buff) ;
+#endif
+
   if ( endp != p )
   { *flag = BAD_DECIMAL ; return 0.0 ; }
   return d ;
@@ -543,8 +663,8 @@ static int octal( start_p )
    moving a pointer forward by reference */
 
 static int  hex( start_p )
-  unsigned char **start_p ;
-{ register unsigned char *p = *start_p ;
+  char **start_p ;
+{ register unsigned char *p = (unsigned char*) *start_p ;
   register unsigned x ;
   unsigned t ;
 
@@ -558,28 +678,45 @@ static int  hex( start_p )
   if ( 'A' <= *p && *p <= 'f' && (t = hex_value(*p)) )
   { x = (x<<4) + t ; p++ ; }
 
-  *start_p = p ;
+  *start_p = (char *) p ;
   return x ;
 }
 
-static char escape_test[] = 
-  "n\nt\tb\br\rf\fa\07v\013\\\\\"\"\'\'" ;
+#define  ET_END     9
+
+static struct { char in , out ; } escape_test[ET_END+1] = {
+'n' , '\n',
+'t' , '\t',
+'f' , '\f',
+'b' , '\b',
+'r' , '\r',
+'a' , '\07',
+'v' , '\013',
+'\\', '\\',
+'\"', '\"',
+0 , 0 } ;
+
 
 /* process the escape characters in a string, in place . */
 
-static char *rm_escape(s)
+char *rm_escape(s)
   char *s ;
 { register char *p, *q ;
   char *t ;
+  int i ;
 
   q = p = s ;
 
   while ( *p )
       if ( *p == '\\' )
       { 
-        if ( t = strchr(escape_test, * ++p) )
+	escape_test[ET_END].in = * ++p ; /* sentinal */
+	i = 0 ;
+	while ( escape_test[i].in != *p )  i++ ;
+
+	if ( i != ET_END )  /* in table */
         { 
-          p++ ; *q++ = t[1] ; 
+          p++ ; *q++ = escape_test[i].out ;
         }
         else
         if ( isoctal(*p) ) 
@@ -591,6 +728,9 @@ static char *rm_escape(s)
         {
           t = p+1 ; *q++ = hex(&t) ; p = t ;
         }
+	else
+	if ( *p == 0 ) /* can only happen with command line assign */
+	    *q++ = '\\' ;
         else  /* not an escape sequence */
         { 
           *q++ = '\\' ; *q++ = *p++ ;

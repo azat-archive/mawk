@@ -1,0 +1,107 @@
+#!/bin/sh
+#
+# build_mawk -- build mawk for a known configuration
+#
+#  usage:  build_mawk [CC=your_cc]  configuration
+#
+#  example:  build_mawk CC=gcc sun_os40
+#
+#
+
+case $# in 
+1)  ;;
+2)  case "$1" in
+    CC=*)  CC=`echo "$1" | sed 's/^CC=//'` ;;
+    *)  error=1 ;;
+    esac 
+    shift ;;
+
+*)  error=1 ;;
+esac
+
+
+if [ "$error" = 1 ]
+   then
+    echo usage: $0  [CC=your_cc]  configuration 1>&2
+    echo
+    echo tested configurations are listed in UCONFIG
+    exit 1 
+fi
+
+[ "$CC" = "" ] && CC=cc
+
+case "$1" in
+
+
+sun_os40)
+	if  sun3 && [ $CC = cc ]
+	    then cflags='-O -f68881'
+	fi
+	config=sun_os40.h ;;
+
+sun3_os40_no68881)
+	config=sun_os40.h  ;;
+
+
+sun_os41)    # never really tried this but should work
+	if  sun3 && [ $CC = cc ]
+	    then cflags='-O -f68881'
+	fi
+	config=generic.h ;;
+
+sun3_os41_no68881)
+	config=generic.h ;;
+
+bsd43_vax)
+	config=bsd43_vax.h ;;
+
+ultrix41_mips)
+	config=generic.h  ;;
+
+ultrix42_mips)
+	config=generic.h
+	cflags='-O -Olimit 600' ;;
+
+ultrix41_vax)
+	config=ultrix_vax.h 
+	cflags='-O -YSYSTEM_FIVE' ;;
+
+ultrix31_vax)
+	config=ultrix_vax.h
+	cflags='-O -YSYSTEM_FIVE -DHAVE_VOID_PTR=0' ;;
+
+stardentVr3)
+	config=generic.h  ;;
+
+xenix_r2)
+	config=xenix_r2.h   ;;
+
+sysV)
+	config=sysV.h  ;;
+
+sysV_ieeefp)
+	config=sysV_ieeefp.h ;;
+
+# SCO UNIX has ranlib, but doesn't use it for native UNIX libraries
+sysVsco)
+	config=sysV.h
+	ranlib=: ;;
+
+apolloSR10.3)
+	config=apollo.h  ;;
+
+dynix)
+	config=dynix.h  ;;
+
+*)  echo "$0: $1: unrecognized configuration" 1>&2
+    exit 1 ;;
+esac
+
+[ "$cflags" = "" ] && cflags=-O
+[ "$ranlib" = "" ] && ranlib=ranlib
+
+rm -f  config.h
+echo linking config/$config to config.h
+ln  config/$config  config.h
+
+make -f Makefile  CC="$CC" CFLAGS="$cflags" RANLIB="$ranlib"

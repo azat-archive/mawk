@@ -4,17 +4,29 @@ memory.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
 /* $Log:	memory.c,v $
+ * Revision 3.3.1.1  91/09/14  17:23:49  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.3  91/08/13  06:51:49  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.2  91/06/28  04:17:06  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/07  10:27:56  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.2  91/06/03  07:54:08  brennan
+ * changed #ifdef __TURBOC__  to #if HAVE_PROTOS
+ * 
  * Revision 2.1  91/04/08  08:23:35  brennan
  * VERSION 0.97
  * 
@@ -25,10 +37,9 @@ program in source or binary form.
 
 #include "mawk.h"
 
-#ifdef  __TURBOC__
+#if     HAVE_PROTOS
 #define SUPPRESS_NEW_STRING_PROTO  /* get compiler off our back on
          the definition of new_STRING() */
-#pragma  warn -pro
 #endif
 
 #include "memory.h"
@@ -72,7 +83,7 @@ STRING *new_STRING(s, xlen)
             default :
                 p = (STRING *) zmalloc(len+5) ;
                 p->ref_cnt = 1 ; p->len = len ;
-                (void) memcpy( p->str , s, len+1) ;
+                (void) memcpy( p->str , s, SIZE_T(len+1)) ;
                 break ;
         }
   else  

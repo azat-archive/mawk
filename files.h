@@ -4,16 +4,28 @@ files.h
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	files.h,v $
+ * Revision 3.3.1.1  91/09/14  17:23:19  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.3  91/08/13  06:51:26  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.2  91/06/28  04:16:41  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/07  10:27:30  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.2  91/05/22  07:40:58  brennan
+ * fixed get_pipe prototype
+ * 
  * Revision 2.1  91/04/08  08:23:07  brennan
  * VERSION 0.97
  * 
@@ -33,7 +45,7 @@ extern char *shell ; /* for pipes and system() */
 
 PTR  PROTO(file_find, (STRING *, int)) ;
 int  PROTO(file_close, (STRING *)) ;
-PTR  PROTO(get_pipe, (char *, int) ) ;
+PTR  PROTO(get_pipe, (char *, int, int *) ) ;
 int  PROTO(wait_for, (int) ) ;
 void  PROTO( close_out_pipes, (void) ) ;
 

@@ -3,22 +3,31 @@
 rexp3.c
 copyright 1991, Michael D. Brennan
 
-This is a source file for mawk an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+This is a source file for mawk, an implementation of
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*  rexp3.c   */
+/*$Log:	rexp3.c,v $
+ * Revision 3.3  91/08/13  09:10:18  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.2  91/06/10  16:18:17  brennan
+ * changes for V7
+ * 
+ * Revision 3.1  91/06/07  10:33:28  brennan
+ * VERSION 0.995
+ * 
+ * Revision 1.4  91/05/31  10:56:32  brennan
+ * stack_empty hack for DOS large model
+ * 
+*/
 
 /*  match a string against a machine   */
 
 #include "rexp.h"
-#include <string.h>
 
 
 /*  check that a bit is on  */
@@ -27,6 +36,8 @@ program in source or binary form.
 
 extern RT_STATE *RE_run_stack_base; 
 extern RT_STATE *RE_run_stack_limit ;
+extern RT_STATE *RE_run_stack_empty ;
+
 RT_STATE  *RE_new_run_stack() ;
 
 
@@ -64,11 +75,11 @@ char *REmatch(str, machine, lenp)
   }
     
   u_flag = U_ON ; cb_ss = ss = str_end = (char *) 0 ;
-  stackp = RE_run_stack_base - 1 ;
+  stackp = RE_run_stack_empty ;
   goto  reswitch ;
 
 refill :
-  if ( stackp < RE_run_stack_base )  /* empty stack */
+  if ( stackp == RE_run_stack_empty )
   { if ( cb_ss )  *lenp = cb_e - cb_ss ;
     return cb_ss ;
   }
@@ -89,7 +100,7 @@ reswitch  :
   switch( m->type + u_flag )
   {
     case M_STR + U_OFF + END_OFF :
-            if ( strncmp(s, m->data.str, m->len) ) goto refill ;
+            if ( strncmp(s, m->data.str, SIZE_T(m->len)) ) goto refill ;
 	    if ( !ss )  
 	        if ( cb_ss && s > cb_ss ) goto refill ;
 		else ss = s ;
@@ -114,9 +125,9 @@ reswitch  :
             goto reswitch ;
 
     case M_STR + U_ON + END_ON :
-            if ( !str_end )  str_end = strchr(s, 0) ;
+            if ( !str_end )  str_end = s + strlen(s) ;
             ts = str_end - m->len ;
-            if (ts < s || memcmp(ts,m->data.str,m->len+1)) goto refill ; 
+            if (ts < s || memcmp(ts,m->data.str,SIZE_T(m->len+1))) goto refill ;
 	    if ( !ss )  
 		if ( cb_ss && ts > cb_ss )  goto refill ;
 		else  ss = ts ;
@@ -153,7 +164,7 @@ reswitch  :
             goto reswitch ;
 
     case M_CLASS + U_ON + END_ON :
-            if ( ! str_end )  str_end = strchr(s,0) ;
+            if ( ! str_end )  str_end = s + strlen(s) ;
             if ( ! ison(*m->data.bvp, str_end[-1]) ) goto refill ;
 	    if ( !ss )
 		if ( cb_ss && str_end-1 > cb_ss )  goto refill ;
@@ -189,7 +200,7 @@ reswitch  :
 
     case M_ANY + U_ON + END_ON :
             if ( s[0] == 0 )  goto refill ;
-            if ( ! str_end )  str_end = strchr(s,0) ;
+            if ( ! str_end )  str_end = s + strlen(s) ;
 	    if ( !ss )
 		if ( cb_ss && str_end-1 > cb_ss )  goto refill ;
 		else  ss = str_end - 1 ;
@@ -218,7 +229,7 @@ reswitch  :
             m++ ; goto reswitch ;
 
     case  M_END + U_ON :
-	    s = str_end ? str_end : (str_end =  strchr(s,0)) ;
+	    s = str_end ? str_end : (str_end =  s + strlen(s)) ;
 	    if ( !ss ) 
 		if ( cb_ss && s > cb_ss )  goto refill ;
 		else  ss = s ;
@@ -257,7 +268,7 @@ reswitch  :
     case  M_ACCEPT + U_ON :
 	    if ( !ss )  ss = s ;
 	    else
-		s = str_end ? str_end : (str_end = strchr(s,0)) ;
+		s = str_end ? str_end : (str_end = s + strlen(s)) ;
 
 	    if ( !cb_ss || ss < cb_ss || ss == cb_ss && s > cb_e )
 	    { /* we have a new current best */

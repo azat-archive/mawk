@@ -4,17 +4,29 @@ kw.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
 /* $Log:	kw.c,v $
+ * Revision 3.4.1.1  91/09/14  17:23:37  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.4  91/08/13  06:51:41  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.3  91/07/18  07:44:45  brennan
+ * eliminated useless assignment
+ * 
+ * Revision 3.2  91/06/28  04:16:56  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/07  10:27:47  brennan
+ * VERSION 0.995
+ * 
  * Revision 2.1  91/04/08  08:23:23  brennan
  * VERSION 0.97
  * 
@@ -74,7 +86,7 @@ void kw_init()
 /* find a keyword to emit an error message */
 char *find_kw_str( kw_token )
   int kw_token ;
-{ struct kw *p = keywords ;
+{ struct kw *p ;
 
   for( p = keywords ; p->text ; p++ )
         if ( p->kw == kw_token )  return p->text ;

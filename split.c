@@ -4,16 +4,40 @@ split.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	split.c,v $
+ * Revision 3.5.1.1  91/09/14  17:24:21  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.5  91/08/13  06:52:12  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.4  91/07/17  15:11:37  brennan
+ * pass length of s to space_split
+ * 
+ * Revision 3.3  91/06/28  04:17:40  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.2  91/06/10  15:59:39  brennan
+ * changes for V7
+ * 
+ * Revision 3.1  91/06/07  10:28:23  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.4  91/06/04  06:48:08  brennan
+ * removed <string.h>
+ * 
+ * Revision 2.3  91/05/28  09:05:18  brennan
+ * removed main_buff
+ * 
+ * Revision 2.2  91/05/15  12:07:41  brennan
+ * dval hash table for arrays
+ * 
  * Revision 2.1  91/04/08  08:24:11  brennan
  * VERSION 0.97
  * 
@@ -29,17 +53,17 @@ program in source or binary form.
 #include "scan.h"
 #include "regexp.h"
 #include "field.h"
-#include <string.h>
 
 
-/* split string s on SPACE without changing s.
+/* split string s of length slen on SPACE without changing s.
    load the pieces into STRINGS and ptrs into
    temp_buff.ptr_buff[] 
    return the number of pieces */
 
-int space_split( s )  
+int space_split( s , slen)  
   register char *s ;
-{ char *back = strchr(s,0) ;
+  unsigned slen ;
+{ char *back = s + slen ;
   int i = 0 ;
   int len ;
   char *q ;
@@ -55,10 +79,9 @@ int space_split( s )
     *back = 0 ;
     sval = (STRING *) (temp_buff.ptr_buff[i++] = 
          (PTR) new_STRING((char *) 0, len = s - q )) ;
-    (void) memcpy(sval->str, q, len) ;
+    (void) memcpy(sval->str, q, SIZE_T(len)) ;
   }
-  if ( i > MAX_FIELD ) 
-     rt_overflow("maximum number of fields", MAX_FIELD) ;
+
   return i ;
 }
 
@@ -87,12 +110,11 @@ int re_split(s, re)
   while ( t = re_pos_match(s, re, &mlen) )
   { sval = (STRING*)(temp_buff.ptr_buff[i++] = (PTR)
             new_STRING( (char *)0, len = t-s) ) ;
-    (void) memcpy(sval->str, s, len) ;
+    (void) memcpy(sval->str, s, SIZE_T(len)) ;
     s = t + mlen ;
   }
   temp_buff.ptr_buff[i++] = (PTR) new_STRING(s) ;
-  if ( i > MAX_FIELD ) 
-     rt_overflow("maximum number of fields", MAX_FIELD) ;
+
   return i ;
 }
     
@@ -107,10 +129,9 @@ CELL *bi_split(sp)
   register CELL *sp ;
 { 
   int cnt ;   /* the number of pieces */
-  double dcnt ; /* double version of cnt */
+  CELL c_cnt ; /* CELL version of cnt */
   ARRAY A ;
   CELL  *cp ;
-  char *ofmt ;
 
 
   if ( sp->type < C_RE )  cast_for_split(sp) ;
@@ -131,7 +152,7 @@ CELL *bi_split(sp)
         break ;
 
     case C_SPACE :
-        cnt = space_split(string(sp)->str) ;
+        cnt = space_split(string(sp)->str, string(sp)->len) ;
         break ;
 
     /* this case could be done by C_RE, but very slowly.
@@ -146,27 +167,26 @@ CELL *bi_split(sp)
     default : bozo("bad splitting cell in bi_split") ;
   }
 
+  if ( cnt > MAX_SPLIT )
+	rt_overflow("maximum pieces from a split", MAX_SPLIT) ;
+
   /* now load the array */
 
   free_STRING( string(sp) ) ;
 
-  sp->type = C_DOUBLE ;
-  sp->dval = dcnt = (double) cnt ;
+  c_cnt.type = sp->type = C_DOUBLE ;
+  c_cnt.dval = sp->dval = (double) cnt ;
 
-  ofmt = string(field + OFMT)->str ;
   A = (ARRAY) (sp+1)->ptr  ;
 
   while ( cnt )
-  { char xbuff[256] ;
-    /* this big in case the user did something goofy with
-       OFMT  */
-  
-    (void) sprintf(xbuff, ofmt, dcnt ) ;
-    dcnt -= 1.0 ;
-    cp = array_find( A, xbuff, 1) ;
+  { 
+    cp = array_find( A, &c_cnt, CREATE) ;
     cell_destroy(cp) ;
     cp->ptr = temp_buff.ptr_buff[--cnt] ;
     cp->type = C_MBSTRN ;
+
+    c_cnt.dval -= 1.0 ;
   }
 
   return sp ;

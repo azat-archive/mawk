@@ -3,22 +3,47 @@
 rexp2.c
 copyright 1991, Michael D. Brennan
 
-This is a source file for mawk an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+This is a source file for mawk, an implementation of
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/*  rexp2.c   */
+/*$Log:	rexp2.c,v $
+ * Revision 3.5  91/08/13  09:10:15  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.4  91/08/08  07:53:34  brennan
+ * work around for turboC realloc() bug
+ * 
+ * Revision 3.4  91/08/07  07:10:47  brennan
+ * work around for TurboC realloc() bug
+ * 
+ * Revision 3.3  91/08/04  15:45:57  brennan
+ * minor change for large model dos
+ * 
+ * Revision 3.2  91/06/10  16:18:14  brennan
+ * changes for V7
+ * 
+ * Revision 3.1  91/06/07  10:33:25  brennan
+ * VERSION 0.995
+ * 
+ * Revision 1.8  91/06/05  09:01:33  brennan
+ * changes to RE_new_run_stack
+ * 
+ * Revision 1.7  91/05/31  10:56:02  brennan
+ * stack_empty hack for DOS large model
+ * 
+*/
+
+
 
 /*  test a string against a machine   */
 
 #include "rexp.h"
-#include <string.h>
+
+#define  STACKGROWTH    16
 
 /* statics */
 static RT_STATE *PROTO(slow_push,(RT_STATE *,STATE*,char*,int)); 
@@ -29,6 +54,11 @@ static RT_STATE *PROTO(slow_push,(RT_STATE *,STATE*,char*,int));
 
 RT_STATE *RE_run_stack_base; 
 RT_STATE *RE_run_stack_limit ;
+
+/* Large model DOS segment arithemetic breaks the current stack.
+   This hack fixes it without rewriting the whole thing, 5/31/91 */
+RT_STATE *RE_run_stack_empty ;
+
 /* for statistics and debug */
 static RT_STATE *stack_max ; 
 
@@ -36,19 +66,51 @@ void RE_run_stack_init()
 { if ( !RE_run_stack_base )
   {
     RE_run_stack_base = (RT_STATE *)
-                 RE_malloc(sizeof(RT_STATE) * 16 ) ;
-    RE_run_stack_limit = RE_run_stack_base + 16 ;
-    stack_max = RE_run_stack_base-1 ;
+                 RE_malloc(sizeof(RT_STATE) * STACKGROWTH ) ;
+    RE_run_stack_limit = RE_run_stack_base + STACKGROWTH ;
+    RE_run_stack_empty = stack_max = RE_run_stack_base-1 ;
   }
 }
 
-RT_STATE  *RE_new_run_stack()
-{ int oldsize = RE_run_stack_limit - RE_run_stack_base ;
+/* sometimes during REmatch(), this stack can grow pretty large.
+   In real life cases, the back tracking usually fails. Some
+   work is needed here to improve the algorithm.
+   I.e., figure out how not to stack useless paths.
+*/
 
-  RE_run_stack_base = (RT_STATE *) RE_realloc( RE_run_stack_base ,
-          (oldsize+8) * sizeof(RT_STATE) ) ;
-  RE_run_stack_limit = RE_run_stack_base + oldsize + 8 ;
-  return  stack_max = RE_run_stack_base + oldsize ;
+RT_STATE  *RE_new_run_stack()
+{ int newsize = (RE_run_stack_limit - RE_run_stack_base) + STACKGROWTH ;
+
+#ifdef  LMDOS   /* large model DOS */
+  /* have to worry about overflow on multiplication (ugh) */
+  if ( newsize >= 4096 ) RE_run_stack_base = (RT_STATE*) 0 ;
+  else
+#endif
+
+#ifdef  __TURBOC__  
+/* turbo C's realloc() screws up when running out of mem  */
+  { RT_STATE *temp = (RT_STATE*)malloc(SIZE_T(newsize*sizeof(RT_STATE))) ;
+    if ( temp ) (void)memcpy(temp,RE_run_stack_base,
+	    SIZE_T((newsize-STACKGROWTH)*sizeof(RT_STATE))) ;
+    free(RE_run_stack_base) ;
+    RE_run_stack_base = temp ;
+  }
+#else  /* normal case */
+  RE_run_stack_base = (RT_STATE *) realloc( RE_run_stack_base ,
+          SIZE_T(newsize * sizeof(RT_STATE)) ) ;
+#endif
+
+  if ( ! RE_run_stack_base )
+  { fprintf(stderr, "out of memory for RE run time stack\n") ;
+    /* this is pretty unusual, I've only seen it happen on
+       weird input to REmatch() under 16bit DOS , the same
+       situation worked easily on 32bit machine.  */
+    exit(100) ;
+  }
+
+  RE_run_stack_limit = RE_run_stack_base + newsize ;
+  RE_run_stack_empty = RE_run_stack_base - 1 ;
+  return  stack_max = RE_run_stack_base + newsize - STACKGROWTH ;
 }
 
 static RT_STATE *slow_push(sp, m, s, u)
@@ -59,7 +121,7 @@ static RT_STATE *slow_push(sp, m, s, u)
 { 
   if ( sp > stack_max )
      if ( (stack_max = sp) == RE_run_stack_limit )
-	     sp = RE_new_run_stack() ;
+             sp = RE_new_run_stack() ;
 
   sp->m = m ; sp->s = s ; sp->u = u ;
   return sp ;
@@ -83,6 +145,8 @@ void  print_max_stack(f)
 
 #define   CASE_UANY(x)  case  x + U_OFF :  case  x + U_ON
 
+/* test if str ~ /machine/
+*/
 
 int  REtest( str, machine)
   char *str ;
@@ -100,12 +164,12 @@ int  REtest( str, machine)
         return  (int ) str_str(s, m->data.str, m->len) ;
   else
   { u_flag = U_ON ; str_end = (char *) 0 ;
-    stackp = RE_run_stack_base - 1 ;
+    stackp = RE_run_stack_empty ;
     goto  reswitch ;
   }
 
 refill :
-  if ( stackp < RE_run_stack_base )  return  0 ;
+  if ( stackp == RE_run_stack_empty )  return  0 ;
   m = stackp->m ;
   s = stackp->s ;
   u_flag  = stackp-- -> u ;
@@ -116,7 +180,7 @@ reswitch  :
   switch( m->type + u_flag )
   {
     case M_STR + U_OFF + END_OFF :
-            if ( strncmp(s, m->data.str, m->len) ) goto refill ;
+            if ( strncmp(s, m->data.str, SIZE_T(m->len)) ) goto refill ;
             s += m->len ;  m++ ;
             goto reswitch ;
 
@@ -132,9 +196,9 @@ reswitch  :
             goto reswitch ;
 
     case M_STR + U_ON + END_ON :
-            if ( !str_end )  str_end = strchr(s, 0) ;
+            if ( !str_end )  str_end = s + strlen(s) ;
             ts = str_end - m->len ;
-            if (ts < s || memcmp(ts,m->data.str,m->len+1)) goto refill ; 
+            if (ts < s || memcmp(ts,m->data.str,SIZE_T(m->len+1))) goto refill ;
             s = str_end ; m++ ; u_flag = U_OFF ;
             goto reswitch ;
 
@@ -158,7 +222,7 @@ reswitch  :
             goto reswitch ;
 
     case M_CLASS + U_ON + END_ON :
-            if ( ! str_end )  str_end = strchr(s,0) ;
+            if ( ! str_end )  str_end = s + strlen(s) ;
             if ( ! ison(*m->data.bvp, str_end[-1]) ) goto refill ;
             s = str_end ; m++ ; u_flag = U_OFF ;
             goto reswitch ;
@@ -182,7 +246,7 @@ reswitch  :
 
     case M_ANY + U_ON + END_ON :
             if ( s[0] == 0 )  goto refill ;
-            if ( ! str_end )  str_end = strchr(s,0) ;
+            if ( ! str_end )  str_end = s + strlen(s) ;
             s = str_end ; m++ ; u_flag = U_OFF ;
             goto reswitch ;
 
@@ -203,7 +267,7 @@ reswitch  :
             m++ ; goto reswitch ;
 
     case  M_END + U_ON :
-            s = strchr(s, 0) ;
+            s += strlen(s) ;
             m++ ; u_flag = U_OFF ;
             goto reswitch ;
 
@@ -271,7 +335,7 @@ char *str_str(target, key, klen)
     default :
               klen-- ; key++ ;
               while ( target = strchr(target, c) )
-                    if ( memcmp(target+1,key,klen) == 0 ) return target ;
+                    if (memcmp(target+1,key,SIZE_T(klen)) == 0) return target ;
                     else target++ ;
               break ;
   }

@@ -4,16 +4,43 @@ field.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	field.c,v $
+ * Revision 3.5.1.1  91/09/14  17:23:11  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.5  91/08/13  06:51:16  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.4  91/07/17  15:11:39  brennan
+ * pass length of s to space_split
+ * 
+ * Revision 3.3  91/06/28  04:16:35  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.2  91/06/24  10:05:27  brennan
+ * FS="" and $0="", gave NF=1 should be 0
+ * 
+ * Revision 3.1  91/06/07  10:27:22  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.6  91/05/28  15:17:46  brennan
+ * removed STRING_BUFF back to temp_buff.string_buff
+ * 
+ * Revision 2.5  91/05/28  09:04:42  brennan
+ * removed main_buff
+ * 
+ * Revision 2.4  91/05/08  12:23:17  brennan
+ * RS = "" is now the same as RS = "\n\n+"
+ * 
+ * Revision 2.3  91/04/24  13:49:56  brennan
+ * eliminated unnecessary calculation of fields in field_assign()
+ * 
  * Revision 2.2  91/04/09  12:39:00  brennan
  * added static to funct decls to satisfy STARDENT compiler
  * 
@@ -34,6 +61,7 @@ program in source or binary form.
 #include "repl.h"
 #include "regexp.h"
 
+union tbuff  temp_buff ;
 CELL  field[NUM_FIELDS] ;
 
 /* statics */
@@ -91,7 +119,7 @@ static void set_rs_shadow()
 
     case C_SNULL : /* RS becomes one or more blank lines */
         rs_shadow.type = SEP_RE ;
-        sval = new_STRING( "\n([ \t]*\n)+" ) ;
+        sval = new_STRING( "\n\n+" ) ;
         rs_shadow.ptr = re_compile(sval) ;
         free_STRING(sval) ;
         break ;
@@ -143,7 +171,7 @@ void  set_field0( s, len)
   {
     field[0].type = C_MBSTRN ;
     field[0].ptr = (PTR) new_STRING( (char *) 0, len) ;
-    (void) memcpy( string(&field[0])->str, s, len ) ;
+    (void) memcpy( string(&field[0])->str, s, SIZE_T(len) ) ;
   }
   else
   {
@@ -158,36 +186,48 @@ void  set_field0( s, len)
 /* split field[0] into $1, $2 ... and set NF  */
 
 void  split_field0()
-{ register int i ;
-  CELL  c ;
-  int  cast_flag ; /* we had to cast field[0] */
-  char *s ;
-  unsigned len ;
+{ register CELL *cp ;
+  register int i ;
+  CELL  c ;  /* copy field[0] here if not string */
 
-  if ( fs_shadow.type == C_SNULL ) /* FS == "" */
-  { cell_destroy(field+1) ;
-    (void) cellcpy(field+1, field+0) ;
-    cell_destroy(field+NF) ;
-    field[NF].type = C_DOUBLE ; field[NF].dval = 1.0 ;
-    return ;
-  }
 
   if ( field[0].type < C_STRING )
   { cast1_to_s(cellcpy(&c, field+0)) ;
-    s = string(&c)->str ;
-    len = string(&c)->len ;
-    cast_flag = 1 ;
+    cp = &c ;
   }
-  else  
-  { s = string(field)->str ; 
-    len = string(field)->len ;
-    cast_flag = 0 ; 
+  else   cp = &field[0] ;
+
+  if ( string(cp)->len == 0 )  nf = 0 ;
+  else
+  {
+    switch( fs_shadow.type )
+    {
+      case   C_SNULL :  /* FS == "" */
+	  nf = 1 ;
+	  cell_destroy(field+NF) ;
+	  field[NF].type = C_DOUBLE ;
+	  field[NF].dval = 1.0 ;
+	  field[1].type = C_MBSTRN ;
+	  field[1].ptr = cp->ptr ;
+
+	  if ( cp == field )  string(cp)->ref_cnt++ ;
+	  /* else we gain one ref_cnt and lose one for a wash */
+
+	  return ;
+
+      case  C_SPACE :
+	  nf = space_split(string(cp)->str, string(cp)->len) ;
+	  break ;
+
+      default :
+	  nf = re_split(string(cp)->str, fs_shadow.ptr) ;
+	  break ;
+    }
+        
+    if ( nf > MAX_FIELD )
+        rt_overflow("maximum number of fields", MAX_FIELD) ;
   }
-
-  nf = len == 0 ? 0 :
-       fs_shadow.type == C_SPACE
-       ? space_split(s) : re_split(s, fs_shadow.ptr) ;
-
+  
   cell_destroy(field+NF) ;
   field[NF].type = C_DOUBLE ;
   field[NF].dval = (double) nf ;
@@ -199,7 +239,7 @@ void  split_field0()
     field[i].type = C_MBSTRN ;
   }
 
-  if ( cast_flag )  free_STRING( string(&c) ) ;
+  if ( cp == &c )  free_STRING( string(cp) ) ;
 }
 
 /*
@@ -213,8 +253,9 @@ void  field_assign( i, cp)
 { register int j ;
   CELL c ;
 
-  /* update fields not up to date */
-  if ( nf < 0 )  split_field0() ;
+  /* update fields not up to date , unless we are
+     assigning to $0 */
+  if ( i != 0 && nf < 0 )  split_field0() ;
 
   switch( i )
   {
@@ -383,7 +424,7 @@ static void  build_field0()
     p = string(field)->str ;
     for( i = 1 ; i < nf ; i++ )
     {
-      (void) memcpy(p, string(field+i)->str, string(field+i)->len) ;
+      (void) memcpy(p, string(field+i)->str, SIZE_T(string(field+i)->len)) ;
       p += string(field+i)->len ;
 
       /* add the separator */
@@ -395,7 +436,7 @@ static void  build_field0()
               free_STRING( string(field+i) ) ;
     }
     /* do the last piece */
-    (void) memcpy(p, string(field+i)->str, string(field+i)->len) ;
+    (void) memcpy(p, string(field+i)->str, SIZE_T(string(field+i)->len)) ;
     if ( field[i].type < C_STRING )
               free_STRING( string(field+i) ) ;
     

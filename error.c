@@ -4,17 +4,38 @@ error.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
 /* $Log:	error.c,v $
+ * Revision 3.3.1.1  91/09/14  17:23:00  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.3  91/08/13  06:51:05  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.2  91/06/28  04:16:26  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/07  10:27:12  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.6  91/05/28  15:17:41  brennan
+ * removed STRING_BUFF back to temp_buff.string_buff
+ * 
+ * Revision 2.5  91/05/28  09:04:38  brennan
+ * removed main_buff
+ * 
+ * Revision 2.4  91/05/16  12:19:36  brennan
+ * cleanup of machine dependencies
+ * 
+ * Revision 2.3  91/04/29  07:16:54  brennan
+ * changes to grammar to make $x++ and $A[3]++ work right
+ * 
  * Revision 2.2  91/04/09  12:38:52  brennan
  * added static to funct decls to satisfy STARDENT compiler
  * 
@@ -79,10 +100,9 @@ MUL , "*" ,
 DIV, "/"  , 
 MOD, "%" ,
 POW, "^" ,
-INC , "++" ,
-DEC , "--" ,
 NOT, "!" ,
 COMMA, "," ,
+INC_or_DEC, temp_buff.string_buff,
 CONSTANT , temp_buff.string_buff ,
 ID , temp_buff.string_buff ,
 FUNCT_ID , temp_buff.string_buff ,
@@ -176,10 +196,14 @@ done :
 }
 
 /* system provided errnos and messages */
+#ifndef MSDOS_MSC	/* don't need the declarations */
+#ifndef THINK_C		/* don't WANT the declarations */
 extern int sys_nerr ;
 extern char *sys_errlist[] ;
+#endif
+#endif
 
-#ifdef  __STDC__
+#if  HAVE_STDARG_H
 #include <stdarg.h>
 
 /* generic error message with a hook into the system error 
@@ -192,8 +216,13 @@ void  errmsg(int errnum, char *format, ...)
   va_start(args, format) ;
   (void) vfprintf(stderr, format, args) ;
   va_end(args) ;
+#ifdef THINK_C
+  if ( errnum > 0 )
+    fprintf(stderr, " (%s)" , strerror(errnum) ) ;
+#else
   if ( errnum > 0 && errnum < sys_nerr )
     fprintf(stderr, " (%s)" , sys_errlist[errnum]) ;
+#endif
   fprintf( stderr, "\n") ;
 }
 
@@ -239,8 +268,13 @@ void  errmsg( va_alist)
   errnum = va_arg(ap, int) ;
   format = va_arg(ap, char *) ;
   (void) vfprintf(stderr, format, ap) ;
+#ifdef THINK_C
+  if ( errnum > 0 )
+    fprintf(stderr, " (%s)" , strerror(errnum) ) ;
+#else
   if ( errnum > 0 && errnum < sys_nerr )
     fprintf(stderr, " (%s)" , sys_errlist[errnum]) ;
+#endif
   fprintf( stderr, "\n") ;
 }
 

@@ -4,17 +4,29 @@ hash.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
 /* $Log:	hash.c,v $
+ * Revision 3.3.1.1  91/09/14  17:23:26  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.3  91/08/13  06:51:33  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.2  91/06/28  04:16:47  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/07  10:27:36  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.2  91/06/04  06:45:10  brennan
+ * removed <string.h>
+ * 
  * Revision 2.1  91/04/08  08:23:13  brennan
  * VERSION 0.97
  * 
@@ -26,7 +38,6 @@ program in source or binary form.
 #include "mawk.h"
 #include "memory.h"
 #include "symtype.h"
-#include <string.h>
 
 
 unsigned hash(s)

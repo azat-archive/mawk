@@ -4,16 +4,34 @@ re_cmpl.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	re_cmpl.c,v $
+ * Revision 3.3.1.1  91/09/14  17:24:04  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.3  91/08/13  06:51:59  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.2  91/06/28  04:17:26  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/07  10:28:09  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.4  91/06/05  07:20:33  brennan
+ * better error messages when regular expression compiles fail
+ * 
+ * Revision 2.3  91/06/04  06:47:07  brennan
+ * removed <string.h>
+ * 
+ * Revision 2.2  91/05/28  09:05:07  brennan
+ * removed main_buff
+ * 
  * Revision 2.1  91/04/08  08:23:45  brennan
  * VERSION 0.97
  * 
@@ -27,7 +45,6 @@ program in source or binary form.
 #include "scan.h"
 #include "regexp.h"
 #include "repl.h"
-#include  <string.h>
 
 static  CELL *PROTO( REPL_compile, (STRING *) ) ;
 
@@ -39,6 +56,7 @@ struct re_node *link ;
 
 static RE_NODE *re_list ;  /* a list of compiled regular expressions */
 
+static char efmt[] = "regular expression compile failed (%s)\n%s" ;
 
 PTR re_compile( sval )
   STRING *sval ;
@@ -61,10 +79,16 @@ PTR re_compile( sval )
   /* not found */
   p = (RE_NODE *) zmalloc( sizeof(RE_NODE) ) ;
   p->sval = sval ;
+
   sval->ref_cnt++ ;
   if( !(p->re = REcompile(s)) )
-  { errmsg(0, "regular expression compile failed (%s)\n%s\n" ,
-               REerrlist[REerrno] , s) ;  mawk_exit(1) ; }
+	if ( mawk_state == EXECUTION )
+	    rt_error(efmt, REerrlist[REerrno] , s) ;
+	else /* compiling */
+	{ compile_error(efmt, REerrlist[REerrno] , s) ;
+	  return (PTR) 0 ;
+	}
+
 
 found :
 /* insert p at the front of the list */
@@ -146,8 +170,9 @@ done :
   if ( q > xbuff || i == 0 )
           temp_buff.ptr_buff[i++] = (PTR) new_STRING(xbuff) ;
 
-  if ( i > MAX_FIELD )
-      overflow("replacement pieces", MAX_FIELD) ;
+  /* This will never happen */
+  if ( i > MAX_SPLIT )
+      overflow("replacement pieces", MAX_SPLIT) ;
 
   cp = new_CELL() ;
   if ( i == 1 )
@@ -274,7 +299,7 @@ char *repl_uncompile( cp )
   else
     while ( p )
       if ( p->cp->type == C_REPLV &&
-           memcmp( cp->ptr, p->cp->ptr, cp->vcnt * sizeof(STRING*)) 
+           memcmp( cp->ptr, p->cp->ptr, SIZE_T(cp->vcnt * sizeof(STRING*))) 
            == 0  )   return  p->sval->str ;
       else  p = p->link ;
 
@@ -309,7 +334,7 @@ CELL  *replv_to_repl( cp, sval)
 
   p = sblock ; cnt = vcnt ; target = string(cp)->str ;
   while ( cnt-- )
-  { (void) memcpy(target, (*p)->str, (*p)->len) ;
+  { (void) memcpy(target, (*p)->str, SIZE_T((*p)->len)) ;
     target += (*p)->len ;
     free_STRING(*p) ;
     p++ ;

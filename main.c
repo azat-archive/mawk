@@ -4,17 +4,40 @@ main.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
-
 /* $Log:	main.c,v $
+ * Revision 3.4.1.1  91/09/14  17:23:39  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.4  91/08/13  06:51:43  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.3  91/06/29  09:47:14  brennan
+ * Only track NR if needed
+ * 
+ * Revision 3.2  91/06/28  04:16:58  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/08  06:14:36  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.6  91/06/08  06:00:18  brennan
+ * changed how eof is marked on main_fin
+ * 
+ * Revision 2.5  91/06/05  07:20:22  brennan
+ * better error messages when regular expression compiles fail
+ * 
+ * Revision 2.4  91/05/30  11:14:38  brennan
+ * added static 
+ * 
+ * Revision 2.3  91/05/16  12:19:56  brennan
+ * cleanup of machine dependencies
+ * 
  * Revision 2.2  91/04/22  08:08:58  brennan
  * cannot close(3) or close(4) because of bug in TurboC++ 1.0
  * 
@@ -36,16 +59,18 @@ program in source or binary form.
 #include "files.h"
 #include <stdio.h>
 
-#if  DOS 
+#if  MSDOS 
 void  reargv(int *, char ***) ;
 #endif
 
 
-void  PROTO( process, (void) ) ;
-void  PROTO( main_loop, (void) ) ;
+static void  PROTO( execution, (void) ) ;
+static void  PROTO( main_loop, (void) ) ;
 
 extern int program_fd ;
 char *progname ;
+short mawk_state ; /* 0 is compiling */
+short NR_reference ;
 
 jmp_buf   exit_jump, next_jump ;
 int  exit_code ;
@@ -55,30 +80,35 @@ main(argc , argv )
   int argc ; char **argv ;
 { 
 
-#if   DOS
+#if   MSDOS
   progname = "mawk" ;
 #if      HAVE_REARGV
   reargv(&argc, &argv) ;
 #endif
-#else
+#else	/* MSDOS */
+#ifdef THINK_C
+  progname = "MacMAWK";
+#else	/* THINK_C */
   { char *strrchr() ;
     char *p = strrchr(argv[0], '/') ;
     progname = p ? p+1 : argv[0] ; }
 #endif
+#endif
 
   initialize(argc, argv) ;
 
-  if ( parse() || compile_error_count )  exit(1) ;
+  if ( parse() || compile_error_count )  mawk_exit(1) ;
 
   compile_cleanup() ;
-  process() ;
+  mawk_state = EXECUTION ;
+  execution() ;
 
   mawk_exit( exit_code ) ;
   return 0 ;
 }
 
 
-static  void  process()
+static  void  execution()
 {
 
   if ( setjmp(exit_jump) )
@@ -110,33 +140,54 @@ static void  main_loop()
   /* the main file stream might already be open by a call of
      getline in the BEGIN block */
 
-  if ( main_fin == (FIN *) -1 && ! open_main()
-       || ! main_fin )  return ;
+  if ( ! main_fin )  open_main()  ;
 
   if ( main_start )
   {
-     (void)  setjmp(next_jump) ;
 
-     while ( p = FINgets( main_fin, &len ) )
-     { 
-       if ( TEST2(bi_vars + NR) != TWO_DOUBLES )
-                    cast2_to_d(bi_vars + NR) ;
+     if ( NR_reference )
+     {
+         (void)  setjmp(next_jump) ;
 
-       bi_vars[NR].dval += 1.0 ;
-       bi_vars[FNR].dval += 1.0 ;
+	 while ( p = FINgets( main_fin, &len ) )
+	 { 
+	   if ( TEST2(bi_vars + NR) != TWO_DOUBLES )
+			cast2_to_d(bi_vars + NR) ;
 
-       set_field0(p, len) ;
-       (void) execute( main_start, eval_stack-1, 0) ;
+	   bi_vars[NR].dval += 1.0 ;
+	   bi_vars[FNR].dval += 1.0 ;
+
+	   set_field0(p, len) ;
+	   (void) execute( main_start, eval_stack-1, 0) ;
+	 }
+     }
+     else /* don't worry about NR */
+     {
+         (void)  setjmp(next_jump) ;
+
+	 while ( p = FINgets( main_fin, &len ) )
+	 { 
+	   set_field0(p, len) ;
+	   (void) execute( main_start, eval_stack-1, 0) ;
+	 }
      }
   }
-  else  /* eat main to set NR and FNR before executing END */
+  else  /* eat main and set correct state */
   { long nr ;
+    char *f0 ;
+    unsigned f0_len ;
 
     if ( TEST2(bi_vars+NR) != TWO_DOUBLES ) cast2_to_d(bi_vars+NR) ;
     nr = (long) bi_vars[NR].dval ;
-    while ( FINgets( main_fin, &len ) )
-    { nr++ ; bi_vars[FNR].dval += 1.0 ; }
+    f0 = (char *) 0 ;
+
+    while ( p = FINgets(main_fin, &len) )
+    {
+      f0 = p ; f0_len = len ;
+      nr++ ; bi_vars[FNR].dval += 1.0 ;
+    }
     bi_vars[NR].dval = (double) nr ;
+    set_field0(f0, f0_len) ;
   }
 }
 
@@ -144,8 +195,10 @@ static void  main_loop()
 void  mawk_exit(x)
   int x ;
 {
-#if  !  DOS
+#if  !  MSDOS
+#ifndef THINK_C
   close_out_pipes() ;  /* no effect, if no out pipes */
+#endif
 #endif
   exit(x) ;
 }

@@ -4,17 +4,41 @@ cast.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
 /*   $Log:	cast.c,v $
+ * Revision 3.4.1.1  91/09/14  17:22:49  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.4  91/08/16  10:32:08  brennan
+ * SW_FP_CHECK for V7 XNX23A
+ * 
+ * Revision 3.3  91/08/13  06:50:56  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.2  91/06/28  04:16:12  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/07  10:27:00  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.5  91/06/04  06:42:57  brennan
+ * removed <string.h>
+ * 
+ * Revision 2.4  91/05/28  15:17:32  brennan
+ * removed STRING_BUFF back to temp_buff.string_buff
+ * 
+ * Revision 2.3  91/05/28  09:04:27  brennan
+ * removed main_buff
+ * 
+ * Revision 2.2  91/05/16  12:19:31  brennan
+ * cleanup of machine dependencies
+ * 
  * Revision 2.1  91/04/08  08:22:44  brennan
  * VERSION 0.97
  * 
@@ -28,7 +52,6 @@ program in source or binary form.
 #include "memory.h"
 #include "scan.h"
 #include "repl.h"
-#include <string.h>
 
 int pow2[NUM_CELL_TYPES] = {1,2,4,8,16,32,64,128,256,512} ;
 
@@ -44,7 +67,7 @@ void cast1_to_d( cp )
     case C_STRING :  
           { register STRING *s = (STRING *) cp->ptr  ;
 
-#if FPE_TRAPS  /* look for overflow error */
+#if FPE_TRAPS_ON  /* look for overflow error */
             errno = 0 ;
             cp->dval = strtod(s->str,(char **)0) ;
             if ( errno && cp->dval != 0.0 ) /* ignore underflow */
@@ -84,7 +107,7 @@ void cast2_to_d( cp )
     case C_STRING :  
             s = (STRING *) cp->ptr ;
 
-#if FPE_TRAPS  /* look for overflow error */
+#if FPE_TRAPS_ON  /* look for overflow error */
             errno = 0 ;
             cp->dval = strtod(s->str,(char **)0) ;
             if ( errno && cp->dval != 0.0 ) /* ignore underflow */
@@ -113,7 +136,7 @@ two:   cp++ ;
     case C_STRING :  
             s = (STRING *) cp->ptr ;
 
-#if FPE_TRAPS  /* look for overflow error */
+#if FPE_TRAPS_ON  /* look for overflow error */
             errno = 0 ;
             cp->dval = strtod(s->str,(char **)0) ;
             if ( errno && cp->dval != 0.0 ) /* ignore underflow */
@@ -282,14 +305,14 @@ void check_strnum( cp )
     case SC_MINUS :
     case SC_DOT   :
 
-#if FPE_TRAPS
+#if FPE_TRAPS_ON
              errno = 0 ;
              cp->dval  = strtod((char *)s, &test) ;
              if ( errno && cp->dval != 0.0 )
                 rt_error(
                 "overflow converting %s to double" , s) ;
 #else
-             cp->dval = strtod(s, &test) ;
+             cp->dval = strtod((char *)s, &test) ;
 #endif
 
              if ((char *) q == test )  cp->type = C_STRNUM ;
@@ -310,7 +333,7 @@ void cast_to_REPL( cp )
 }
 
 
-#if   NO_STRTOD
+#if   HAVE_STRTOD==0
 
 static char d_str[] =
 "^[ \t]*[-+]?([0-9]+\\.?|\\.[0-9])[0-9]*([eE][-+]?[0-9]+)?" ;
@@ -336,9 +359,24 @@ double strtod( s, endptr)
   }
   return  atof(s) ;
 }
-#endif  /* NO_STRTOD */
+#endif  /* HAVE_STRTOD==0 */
 
-#if   NO_FMOD
+#if   HAVE_FMOD==0
+
+#if SW_FP_CHECK   /* this is V7 and XNX23A specific */
+
+double  fmod(x, y)
+  double x, y ;
+{ double modf() ;
+  double dtmp, ipart ;
+
+  clrerr();
+  dtmp = x / y;
+  fpcheck();
+  return modf(dtmp, &ipart) * y ;
+}
+
+#else
 
 double  fmod(x, y)
   double x, y ;
@@ -348,7 +386,8 @@ double  fmod(x, y)
   return modf(x/y, &ipart) * y ;
 }
 
-#endif  /* NO_FMOD */
+#endif
+#endif  
 
 
 

@@ -4,7 +4,15 @@
     --  no errors, don't change anything if
     --  it seems shell is not activated   */
 
-char *strchr(), *getenv() ;
+/* POLYSHELL puts the shell expanded command line
+   in the environment variable CMDLINE.  Ascii 0 is
+   replaced by \xff.
+*/
+
+char *strchr(char *, int), *getenv(char *) ;
+char *basename(char *) ;
+void *malloc(unsigned) ;
+int  strcmp(char *, char *) ;
 
 static  char *basename(char *s)
 /* strip path and extension , upcase the rest */

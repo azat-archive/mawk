@@ -4,17 +4,29 @@ da.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
 /* $Log:	da.c,v $
+ * Revision 3.3.1.1  91/09/14  17:22:56  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.3  91/08/13  06:51:02  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.2  91/06/28  04:16:24  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/07  10:27:08  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.2  91/06/06  09:21:54  brennan
+ * added static decl to make STARDENT compiler happy
+ * 
  * Revision 2.1  91/04/08  08:22:50  brennan
  * VERSION 0.97
  * 
@@ -31,7 +43,7 @@ program in source or binary form.
 #include  "repl.h"
 #include  "field.h"
 
-char *PROTO(find_bi_name, (PF_CP) ) ;
+static char *PROTO(find_bi_name, (PF_CP) ) ;
 
 void  da(start, fp)
   INST *start ;
@@ -41,7 +53,7 @@ void  da(start, fp)
 
   while ( 1 )
   { /* print the relative code address (label) */
-    fprintf(fp,"%03d ", p - start) ;
+    fprintf(fp,"%03ld ", (long)(p - start)) ;
 
     switch( p++->op )
     {
@@ -62,7 +74,7 @@ void  da(start, fp)
                   break ;
 
               case C_RE :
-                  fprintf(fp,"pushc\t0x%x\t/%s/\n" , cp->ptr ,
+                  fprintf(fp,"pushc\t0x%lx\t/%s/\n" , (long)cp->ptr ,
                     re_uncompile(cp->ptr) ) ;
                   break ;
 
@@ -89,13 +101,13 @@ void  da(start, fp)
             break ;
 
       case _PUSHA :
-            fprintf(fp,"pusha\t0x%x\n", p++ -> ptr) ;
+            fprintf(fp,"pusha\t0x%lx\n", (long)(p++ -> ptr)) ;
             break ;
 
       case _PUSHI :
             if ( (CELL *)p->ptr == field )
                 fprintf(fp, "pushi\t$0\n") ;
-            else fprintf(fp,"pushi\t0x%x\n", p -> ptr) ;
+            else fprintf(fp,"pushi\t0x%lx\n", (long)(p -> ptr)) ;
             p++ ;
             break ;
 
@@ -120,11 +132,11 @@ void  da(start, fp)
             break ;
 
       case F_PUSHA :
-            fprintf(fp,"f_pusha\t$%d\n" , (CELL *) p++->ptr - field ) ;
+            fprintf(fp,"f_pusha\t$%ld\n" , (long)((CELL *)p++->ptr - field) ) ;
             break ;
 
       case F_PUSHI :
-            fprintf(fp,"f_pushi\t$%d\n" , (CELL *) p++->ptr - field ) ;
+            fprintf(fp,"f_pushi\t$%ld\n" , (long)((CELL *)p++->ptr - field) ) ;
             break ;
 
       case FE_PUSHA :
@@ -136,15 +148,15 @@ void  da(start, fp)
             break ;
 
       case AE_PUSHA :
-            fprintf(fp,"ae_pusha\t0x%x\n" , p++->ptr) ;
+            fprintf(fp,"ae_pusha\t0x%lx\n" , (long)(p++->ptr)) ;
             break ;
 
       case AE_PUSHI :
-            fprintf(fp,"ae_pushi\t0x%x\n" , p++->ptr) ;
+            fprintf(fp,"ae_pushi\t0x%lx\n" , (long)(p++->ptr)) ;
             break ;
 
       case A_PUSHA :
-            fprintf(fp,"a_pusha\t0x%x\n" , p++->ptr) ;
+            fprintf(fp,"a_pusha\t0x%lx\n" , (long)(p++->ptr)) ;
             break ;
 
       case A_TEST :
@@ -266,8 +278,8 @@ void  da(start, fp)
             char *s = j == _JMP ? "jmp" : 
                       j == _JNZ ? "jnz" : "jz" ;
 
-            fprintf(fp,"%s\t\t%03d\n" , s ,
-              (p - start) + p->op - 1 ) ;
+            fprintf(fp,"%s\t\t%03ld\n" , s ,
+              (long)((p - start) + p->op - 1) ) ;
             p++ ;
             break ;
           }
@@ -294,7 +306,7 @@ void  da(start, fp)
             fprintf(fp,"match_op\n") ; break ;
 
       case  A_LOOP :
-            fprintf(fp,"a_loop\t%03d\n", p-start+p[1].op) ;
+            fprintf(fp,"a_loop\t%03ld\n", (long)(p-start+p[1].op)) ;
             p += 2 ;
             break ;
 
@@ -321,9 +333,9 @@ void  da(start, fp)
       case  _RANGE :
             fprintf(fp, "range\t%03d %03d %03d\n",
               /* label for pat2, action, follow */
-              p - start + p[1].op ,
-              p - start + p[2].op ,
-              p - start + p[3].op ) ;
+              (long)(p - start + p[1].op) ,
+              (long)(p - start + p[2].op) ,
+              (long)(p - start + p[3].op) ) ;
             p += 4 ; 
             break ;
       default :

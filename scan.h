@@ -4,17 +4,29 @@ scan.h
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 
 /* $Log:	scan.h,v $
+ * Revision 3.4.1.1  91/09/14  17:24:16  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.4  91/08/13  06:52:08  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.3  91/06/28  04:17:35  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.2  91/06/10  15:59:36  brennan
+ * changes for V7
+ * 
+ * Revision 3.1  91/06/07  10:28:19  brennan
+ * VERSION 0.995
+ * 
  * Revision 2.2  91/04/09  12:39:31  brennan
  * added static to funct decls to satisfy STARDENT compiler
  * 
@@ -93,7 +105,7 @@ extern  YYSTYPE  yylval ;
 #define  next() (*buffp ? *buffp++ : slow_next())
 #define  un_next()  buffp--
 
-#define  ifnext(c,x,y) (next()==c?x:(un_next(),y))
+#define  ifnext(c,x,y) (next()==(c)?(x):(un_next(),(int)(y)))
 
 #define  test1_ret(c,x,d)  if ( next() == (c) ) ct_ret(x) ;\
                            else { un_next() ; ct_ret(d) ; }

@@ -4,16 +4,34 @@ print.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	print.c,v $
+ * Revision 3.4.1.1  91/09/14  17:24:01  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.4  91/08/13  06:51:57  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.3  91/06/28  04:17:24  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.2  91/06/10  15:59:29  brennan
+ * changes for V7
+ * 
+ * Revision 3.1  91/06/07  10:28:06  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.4  91/05/28  15:18:07  brennan
+ * removed STRING_BUFF back to temp_buff.string_buff
+ * 
+ * Revision 2.3  91/05/28  09:05:04  brennan
+ * removed main_buff
+ * 
  * Revision 2.2  91/04/09  12:39:23  brennan
  * added static to funct decls to satisfy STARDENT compiler
  * 
@@ -55,7 +73,7 @@ static void print_cell(p, fp)
                     break ;
 
           default :
-                    fwrite(string(p)->str, 1, len, fp) ;
+                    fwrite(string(p)->str, SIZE_T(1), SIZE_T(len), fp) ;
         }
         break ;
 
@@ -127,7 +145,7 @@ static void do_printf( fp, format, argcnt, cp)
               format ) ; 
 
     if ( * ++q == '%' )
-    { fwrite( p, q-p, 1, fp) ; p = q+1 ; continue ; }
+    { fwrite( p, SIZE_T(q-p), SIZE_T(1), fp) ; p = q+1 ; continue ; }
 
     if ( argcnt == 0 )
         rt_error("too few arguments in call to printf(%s)", format) ; 
@@ -218,16 +236,16 @@ static void do_sprintf( format, argcnt, cp)
   char *p = format ;
   register char *target = temp_buff.string_buff ;
 
-  *target = 0 ;
+  temp_buff.string_buff[SPRINTF_SZ-1] = *target = 0 ;
   while ( 1 )
   { if ( ! (q = strchr(p, '%'))  )
        if ( argcnt == 0 )
        { strcpy(target, p) ; 
          /* check the result is not too large */
-         if ( main_buff[-1] != 0 )
+         if ( temp_buff.string_buff[SPRINTF_SZ-1] != 0 )
          { /* This may have damaged us -- try to croak out an error
               message and exit */
-           rt_overflow("sprintf buffer", TEMP_BUFF_SZ) ;
+           rt_overflow("sprintf buffer", SPRINTF_SZ) ;
          }
          return ; 
        }
@@ -238,7 +256,7 @@ static void do_sprintf( format, argcnt, cp)
     if ( * ++q == '%' )
     { unsigned len ;
 
-      (void) memcpy(target, p, len = q-p ) ;
+      (void) memcpy(target, p, SIZE_T(len = q-p) ) ;
       p = q + 1 ; *(target += len) = 0 ;
       continue ;
     }
@@ -261,19 +279,19 @@ static void do_sprintf( format, argcnt, cp)
       case 'x' :
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
             (void) sprintf(target, p, (int) cp->dval ) ;
-            target = strchr(target, 0) ;
+            target += strlen(target) ;
             break ;
       case 'e' :
       case 'g' :
       case 'f' :
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
             (void) sprintf(target, p, cp->dval ) ;
-            target = strchr(target, 0) ;
+            target += strlen(target) ;
             break ;
       case  's' :
             if ( cp->type < C_STRING ) cast1_to_s(cp) ;
             (void) sprintf(target, p, string(cp)->str ) ;
-            target = strchr(target, 0) ;
+            target += strlen(target) ;
             break ;
       default :
             rt_error("bad format string in call to sprintf(%s)", 

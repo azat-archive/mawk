@@ -4,16 +4,46 @@ execute.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	execute.c,v $
+ * Revision 3.6.1.1  91/09/14  17:23:03  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.6  91/08/16  11:01:26  brennan
+ * Carl's addition of SW_FP_CHECK for V7 XNX23A
+ * 
+ * Revision 3.5  91/08/13  06:51:08  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.4  91/06/28  04:16:28  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.3  91/06/19  10:23:28  brennan
+ * changes for xenix_r2, call this version 0.997
+ * 
+ * Revision 3.2  91/06/15  09:12:22  brennan
+ * Carl's diffs for V7
+ * 
+ * 06/12/91  C. Mascott		use D2BOOL macro for logical
+ *				  test on double
+ *
+ * Revision 3.1  91/06/07  10:27:14  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.5  91/05/23  15:45:44  brennan
+ * fixed bug in _TEST:  case C_STRNUM
+ * 
+ * Revision 2.4  91/05/22  07:43:29  brennan
+ * small change to work around bug in TurboC++
+ * 
+ * Revision 2.3  91/05/15  12:07:31  brennan
+ * dval hash table for arrays
+ * 
  * Revision 2.2  91/04/09  12:38:54  brennan
  * added static to funct decls to satisfy STARDENT compiler
  * 
@@ -36,6 +66,11 @@ program in source or binary form.
 /* static functions */
 static int PROTO( compare, (CELL *) ) ;
 static void PROTO( eval_overflow, (void) ) ;
+
+
+#if   NOINFO_SIGFPE
+static char dz_msg[] = "division by zero" ;
+#endif
 
 #ifdef   DEBUG
 #define  inc_sp()   if( ++sp == eval_stack+EVAL_STACK_SIZE )\
@@ -180,9 +215,9 @@ INST  *execute(cdp, sp, fp)
         /* top of stack has an expr, cdp->ptr points at an
            array, replace the expr with the cell address inside
            the array */
-            cast1_to_s(sp) ;
-            cp = array_find((ARRAY)cdp++->ptr, sp->ptr, 0) ;
-            free_STRING( string(sp) );
+
+            cp = array_find((ARRAY)cdp++->ptr, sp, CREATE) ;
+            cell_destroy(sp) ;
             sp->ptr = (PTR) cp ;
             break ;
 
@@ -190,9 +225,9 @@ INST  *execute(cdp, sp, fp)
         /* top of stack has an expr, cdp->ptr points at an
            array, replace the expr with the contents of the
            cell inside the array */
-            cast1_to_s(sp) ;
-            cp = array_find((ARRAY) cdp++->ptr, sp->ptr, 0) ;
-            free_STRING(string(sp)) ;
+
+            cp = array_find((ARRAY) cdp++->ptr, sp, CREATE) ;
+            cell_destroy(sp) ;
             (void) cellcpy(sp, cp) ;
             break ;
 
@@ -202,9 +237,8 @@ INST  *execute(cdp, sp, fp)
                has an ARRAY in the ptr field, replace expr
             with  array[expr]
         */
-            cast1_to_s(sp) ;
-            cp = array_find( (ARRAY)fp[cdp++->op].ptr, sp->ptr, 0) ;
-            free_STRING(string(sp)) ;
+            cp = array_find( (ARRAY)fp[cdp++->op].ptr, sp, CREATE) ;
+            cell_destroy(sp) ;
             (void) cellcpy(sp, cp) ;
             break ;
             
@@ -214,9 +248,8 @@ INST  *execute(cdp, sp, fp)
                has an ARRAY in the ptr field, replace expr
             with  & array[expr]
         */
-            cast1_to_s(sp) ;
-            cp = array_find( (ARRAY)fp[cdp++->op].ptr, sp->ptr, 0) ;
-            free_STRING(string(sp)) ;
+            cp = array_find( (ARRAY)fp[cdp++->op].ptr, sp, CREATE) ;
+            cell_destroy(sp) ;
             sp->ptr = (PTR) cp ;
             break ;
             
@@ -269,7 +302,14 @@ INST  *execute(cdp, sp, fp)
             if ( sp->type != C_DOUBLE ) cast1_to_d(sp) ;
             cp = (CELL *) (sp-1)->ptr ;
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
+
+#if SW_FP_CHECK   /* specific to V7 and XNX23A */
+            clrerr();
+#endif
             cp->dval += sp-- -> dval ;
+#if SW_FP_CHECK
+            fpcheck();
+#endif
             sp->type = C_DOUBLE ;
             sp->dval = cp->dval ;
             break ;
@@ -278,7 +318,13 @@ INST  *execute(cdp, sp, fp)
             if ( sp->type != C_DOUBLE ) cast1_to_d(sp) ;
             cp = (CELL *) (sp-1)->ptr ;
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
+#if SW_FP_CHECK
+            clrerr();
+#endif
             cp->dval -= sp-- -> dval ;
+#if SW_FP_CHECK
+            fpcheck();
+#endif
             sp->type = C_DOUBLE ;
             sp->dval = cp->dval ;
             break ;
@@ -287,7 +333,13 @@ INST  *execute(cdp, sp, fp)
             if ( sp->type != C_DOUBLE ) cast1_to_d(sp) ;
             cp = (CELL *) (sp-1)->ptr ;
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
+#if SW_FP_CHECK
+            clrerr();
+#endif
             cp->dval *= sp-- -> dval ;
+#if SW_FP_CHECK
+            fpcheck();
+#endif
             sp->type = C_DOUBLE ;
             sp->dval = cp->dval ;
             break ;
@@ -296,7 +348,18 @@ INST  *execute(cdp, sp, fp)
             if ( sp->type != C_DOUBLE ) cast1_to_d(sp) ;
             cp = (CELL *) (sp-1)->ptr ;
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
+
+#if  NOINFO_SIGFPE
+	CHECK_DIVZERO(sp->dval) ;
+#endif
+
+#if SW_FP_CHECK
+            clrerr();
+#endif
             cp->dval /= sp-- -> dval ;
+#if SW_FP_CHECK
+            fpcheck();
+#endif
             sp->type = C_DOUBLE ;
             sp->dval = cp->dval ;
             break ;
@@ -305,6 +368,11 @@ INST  *execute(cdp, sp, fp)
             if ( sp->type != C_DOUBLE ) cast1_to_d(sp) ;
             cp = (CELL *) (sp-1)->ptr ;
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
+
+#if  NOINFO_SIGFPE
+	CHECK_DIVZERO(sp->dval) ;
+#endif
+
             cp->dval = fmod(cp->dval,sp-- -> dval) ;
             sp->type = C_DOUBLE ;
             sp->dval = cp->dval ;
@@ -325,7 +393,13 @@ INST  *execute(cdp, sp, fp)
             if ( sp->type != C_DOUBLE ) cast1_to_d(sp) ;
             cp = (CELL *) (sp-1)->ptr ;
             cast1_to_d( cellcpy(&tc, cp) ) ;
+#if SW_FP_CHECK
+            clrerr();
+#endif
             tc.dval += sp-- -> dval ;
+#if SW_FP_CHECK
+            fpcheck();
+#endif
             sp->type = C_DOUBLE ;
             sp->dval = tc.dval ;
             field_assign(cp-field, &tc) ;
@@ -335,7 +409,13 @@ INST  *execute(cdp, sp, fp)
             if ( sp->type != C_DOUBLE ) cast1_to_d(sp) ;
             cp = (CELL *) (sp-1)->ptr ;
             cast1_to_d( cellcpy(&tc, cp) ) ;
+#if SW_FP_CHECK
+            clrerr();
+#endif
             tc.dval -= sp-- -> dval ;
+#if SW_FP_CHECK
+            fpcheck();
+#endif
             sp->type = C_DOUBLE ;
             sp->dval = tc.dval ;
             field_assign(cp-field, &tc) ;
@@ -345,7 +425,13 @@ INST  *execute(cdp, sp, fp)
             if ( sp->type != C_DOUBLE ) cast1_to_d(sp) ;
             cp = (CELL *) (sp-1)->ptr ;
             cast1_to_d( cellcpy(&tc, cp) ) ;
+#if SW_FP_CHECK
+            clrerr();
+#endif
             tc.dval *= sp-- -> dval ;
+#if SW_FP_CHECK
+            fpcheck();
+#endif
             sp->type = C_DOUBLE ;
             sp->dval = tc.dval ;
             field_assign(cp-field, &tc) ;
@@ -355,7 +441,18 @@ INST  *execute(cdp, sp, fp)
             if ( sp->type != C_DOUBLE ) cast1_to_d(sp) ;
             cp = (CELL *) (sp-1)->ptr ;
             cast1_to_d( cellcpy(&tc, cp) ) ;
+
+#if  NOINFO_SIGFPE
+	CHECK_DIVZERO(sp->dval) ;
+#endif
+
+#if SW_FP_CHECK
+            clrerr();
+#endif
             tc.dval /= sp-- -> dval ;
+#if SW_FP_CHECK
+            fpcheck();
+#endif
             sp->type = C_DOUBLE ;
             sp->dval = tc.dval ;
             field_assign(cp-field, &tc) ;
@@ -365,6 +462,11 @@ INST  *execute(cdp, sp, fp)
             if ( sp->type != C_DOUBLE ) cast1_to_d(sp) ;
             cp = (CELL *) (sp-1)->ptr ;
             cast1_to_d( cellcpy(&tc, cp) ) ;
+
+#if  NOINFO_SIGFPE
+	CHECK_DIVZERO(sp->dval) ;
+#endif
+
             tc.dval = fmod(tc.dval, sp-- -> dval) ;
             sp->type = C_DOUBLE ;
             sp->dval = tc.dval ;
@@ -385,34 +487,68 @@ INST  *execute(cdp, sp, fp)
             sp-- ;
             if ( TEST2(sp) != TWO_DOUBLES )
                     cast2_to_d(sp) ;
+#if SW_FP_CHECK
+            clrerr();
+#endif
             sp[0].dval += sp[1].dval ;
+#if SW_FP_CHECK
+            fpcheck();
+#endif
             break ;
 
         case _SUB :
             sp-- ;
             if ( TEST2(sp) != TWO_DOUBLES )
                     cast2_to_d(sp) ;
+#if SW_FP_CHECK
+            clrerr();
+#endif
             sp[0].dval -= sp[1].dval ;
+#if SW_FP_CHECK
+            fpcheck();
+#endif
             break ;
 
         case _MUL :
             sp-- ;
             if ( TEST2(sp) != TWO_DOUBLES )
                     cast2_to_d(sp) ;
+#if SW_FP_CHECK
+            clrerr();
+#endif
             sp[0].dval *= sp[1].dval ;
+#if SW_FP_CHECK
+            fpcheck();
+#endif
             break ;
 
         case _DIV :
             sp-- ;
             if ( TEST2(sp) != TWO_DOUBLES )
                     cast2_to_d(sp) ;
+
+#if  NOINFO_SIGFPE
+	CHECK_DIVZERO(sp[1].dval) ;
+#endif
+
+#if SW_FP_CHECK
+            clrerr();
+#endif
             sp[0].dval /= sp[1].dval ;
+#if SW_FP_CHECK
+            fpcheck();
+#endif
             break ;
 
         case _MOD :
             sp-- ;
             if ( TEST2(sp) != TWO_DOUBLES )
                     cast2_to_d(sp) ;
+
+#if  NOINFO_SIGFPE
+	CHECK_DIVZERO(sp[1].dval) ;
+#endif
+
             sp[0].dval = fmod(sp[0].dval,sp[1].dval) ;
             break ;
 
@@ -429,14 +565,14 @@ INST  *execute(cdp, sp, fp)
             { case C_NOINIT :
                     sp->dval = 1.0 ; break ;
               case C_DOUBLE :
-                    sp->dval =  sp->dval ? 0.0 : 1.0 ;
+                    sp->dval = D2BOOL(sp->dval) ? 0.0 : 1.0 ;
                     break ;
               case C_STRING :
                     sp->dval = string(sp)->len ? 0.0 : 1.0 ;
                     free_STRING(string(sp)) ;
                     break ;
               case C_STRNUM : /* test as a number */
-                    sp->dval = sp->dval ? 0.0 : 1.0 ;
+                    sp->dval = D2BOOL(sp->dval) ? 0.0 : 1.0 ;
                     free_STRING(string(sp)) ;
                     break ;
               case C_MBSTRN :
@@ -454,14 +590,14 @@ INST  *execute(cdp, sp, fp)
             { case C_NOINIT :
                     sp->dval = 0.0 ; break ;
               case C_DOUBLE :
-                    sp->dval = sp->dval ? 1.0 : 0.0 ;
+                    sp->dval = D2BOOL(sp->dval) ? 1.0 : 0.0 ;
                     break ;
               case C_STRING :
                     sp->dval  = string(sp)->len ? 1.0 : 0.0 ;
                     free_STRING(string(sp)) ;
                     break ;
               case C_STRNUM : /* test as a number */
-                    sp->dval  = sp->dval ? 1.0 : 0.0 ;
+                    sp->dval = D2BOOL(sp->dval) ? 1.0 : 0.0 ;
                     free_STRING(string(sp)) ;
                     break ;
               case C_MBSTRN :
@@ -496,8 +632,8 @@ INST  *execute(cdp, sp, fp)
               len2 = string(sp+1)->len ;
 
               b = new_STRING((char *)0, len1+len2) ;
-              (void) memcpy(b->str, str1, len1) ;
-              (void) memcpy(b->str + len1, str2, len2) ;
+              (void) memcpy(b->str, str1, SIZE_T(len1)) ;
+              (void) memcpy(b->str + len1, str2, SIZE_T(len2)) ;
               free_STRING(string(sp)) ;
               free_STRING( string(sp+1) ) ;
 
@@ -651,11 +787,11 @@ INST  *execute(cdp, sp, fp)
                     sp[-1]  is an expression
 
            we compute   expression in array  */
-            if ( (--sp)->type < C_STRING ) cast1_to_s(sp) ;
-            t = array_test( (sp+1)->ptr, string(sp)) ;
-            free_STRING(string(sp)) ;
+            sp-- ;
+            cp = array_find( (sp+1)->ptr, sp, NO_CREATE) ;
+            cell_destroy(sp) ;
             sp->type = C_DOUBLE ;
-            sp->dval = t ? 1.0 : 0.0 ;
+            sp->dval = (cp!=(CELL*)0)  ? 1.0 : 0.0 ;
             break ;
 
         case  A_DEL :
@@ -663,10 +799,9 @@ INST  *execute(cdp, sp, fp)
            sp[-1] is an expr
            delete  array[expr]  */
 
-            cast1_to_s(--sp) ;
-            array_delete( sp[1].ptr , sp->ptr) ;
-            free_STRING( string(sp) ) ;
-            sp-- ;
+            array_delete(sp->ptr, sp-1) ;
+            cell_destroy(sp-1) ;
+            sp -= 2 ;
             break ;
         
         /* form a multiple array index */

@@ -1,0 +1,81 @@
+#!/bin/sh
+#
+# This script removes bison's use of alloca()
+#
+# If the parser stack overflows, bison reallocates the stack using
+# alloca().  The chance of parser overflow on an awk program is nil,
+# and since mawk never uses alloca() and some systems don't have it
+# the most portable solution is to #if 0  it out
+#
+# This script only works with bison 1.14
+#
+# If you use an earlier version of bison, look for the line
+# tested for in state == 2 below.  This is the push of a new
+# state on the parser stack.  You want to make overflow work
+# like this:
+
+#      if ( parser stack overflow )
+#      { errmsg(0, "parser stack overflow") ; exit(1) ; }
+
+# Alternatively, if you have alloca() don't do anything, you'll
+# get a little dead code. Or upgrade your bison.
+#
+
+# Also with bison 1.14, two arrays yyphrs[] and yyrhs[] slip
+# through that aren't needed if YYDEBUG == 0 so this script
+# also puts #if YYDEBUG != 0  conditionals around them.  This
+# only matters to those with small (64K) or so memory.
+
+# This script is useful for any bison output to be used for
+# example under MsDOS with a small model program.
+
+
+awk_program='
+
+BEGIN { state = 0 }
+
+NR==2 && !/Bison/ {
+  print "fix_ytab: y.tab.c is not Bison output" | "cat 1>&2"
+  exit 1
+}
+
+
+state == 0 && /^static const short yyprhs\[\] = {/ {
+
+  print "#if YYDEBUG != 0"
+  print
+  state = 1
+  next
+}
+
+
+state == 1 && /^#if YYDEBUG/ {
+
+  print "#endif"
+  print 
+  state = 2
+  next
+}
+
+state == 2 && /^[ \t]*if \(yyssp >= yyss \+ yystacksize - 1\)/ {
+
+   print ; getline ; print
+   print "\t/* this can never happen */"
+   print "\terrmsg(0 , \"parser stack overflow\") ; exit(1) ;"
+   print "#if 0"
+   state = 3
+   next
+}
+
+state == 3 && /YYABORT/ {
+   print
+   print "#endif  /* if 0 */"
+   state = 4
+   next
+}
+
+{ print }'
+     
+    
+
+awk "$awk_program"  $*

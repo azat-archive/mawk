@@ -1,21 +1,55 @@
+This is mawk 1.0
+an interpreter for the AWK programming language as
+defined in the 1988 AWK book, i.e. a new awk.
+
+If you use old awk, you should definitely switch to a new awk
+as the language is much more versatile.
+
+Mawk is generally faster than other new (or old) awks.
+
+Mawk also allows the record separator (RS) to be a regular
+expression which makes non-line oriented text processing
+tasks easier. (See the man pages for examples and section
+THE AWK LANGUAGE.11 for the exact record splitting algorithm).
 
 
-to build mawk:
+Target OS is all flavors of UNIX and MsDOS
+	compiled and tested on:
 
-make sure  there is an appropriate description of
-your system in machine.h
+	sun3, SunOS4.0.3
+	sun4, SunOS4.0.3[c]  , SunOS4.1
+	BSD43 VAX
+	SysVR3 on Stardent3000
+	Ultrix4.1 on MicroVax3600
+	Ultrix4.1 on mips  decstation
+	Ultrix4.2 on mips  decstation
+	Ultrix3.1 on vax
+	XENIX SysV R2.3.1
+	SCO Unix sysVR3.2v2.0
+	ESIX System 5.3.2 RevD using gcc 1.39
+	Dynix on Sequent Symmetry
 
-set CFLAGS in the Makefile to pick the appropriate blob
-in machine.h
+	MsDOS TurboC++1.0, small and large model
+	      MSC 6.0A
+		(system() and pipes are missing from DOS mawk)
 
-run make
+This version of mawk is compatible with the AWK book and
+sysVR3 nawk.  It lacks a few features of sysVR4 nawk which
+have been incorporated into the posix 11.1 draft for awk.
+Differences between new awks are discussed in the 
+COMPATIBILITY ISSUES section of the man pages.
+
+Mawk is distributed without warranty under the terms of the
+GNU General Public License, version 2, June 1991.  The file
+COPYING contains the GNU General Public License, version 2.
+
+To install:
+  Unix or Unix-like OS  read  INSTALL
+  MsDOS  read msdos/NOTES
+  Mac read macintosh/NOTES (currently untested)
 
 
+Bug reports or other correspondence should be sent to
 
-PS:
-I expected to have bcopy() <-> memcpy()
-hassles on 4.3BSD, but didn't
-Is this right? or did someone add memcpy(), strchr() etc
-   to that machine?
-   If 4.3BSD in machine.h is wrong, let me know at
-   brennan@bcsaic.boeing.com
+Mike Brennan
+brennan@boeing.com

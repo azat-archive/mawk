@@ -4,16 +4,37 @@ files.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	files.c,v $
+ * Revision 3.4.1.1  91/09/14  17:23:17  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.4  91/08/13  06:51:23  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.3  91/06/28  04:16:39  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.2  91/06/10  15:59:11  brennan
+ * changes for V7
+ * 
+ * Revision 3.1  91/06/07  10:27:27  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.4  91/06/06  09:42:03  brennan
+ * added HAVE_FCNTL
+ * 
+ * Revision 2.3  91/05/16  12:19:44  brennan
+ * cleanup of machine dependencies
+ * 
+ * Revision 2.2  91/05/06  15:00:59  brennan
+ * flush output before fork
+ * 
  * Revision 2.1  91/04/08  08:23:05  brennan
  * VERSION 0.97
  * 
@@ -24,12 +45,23 @@ program in source or binary form.
 #include "mawk.h"
 #include "files.h"
 #include "memory.h"
-#include <stdio.h>
 #include "fin.h"
 
-#if  ! DOS
-#include <fcntl.h>
+
+#ifdef  V7
+#include  <sgtty.h>    /* defines FIOCLEX */
 #endif
+  
+
+#if  HAVE_FCNTL_H  
+
+#include <fcntl.h>
+#define  CLOSE_ON_EXEC(fd)   (void) fcntl(fd, F_SETFD, 1)
+
+#else
+#define  CLOSE_ON_EXEC(fd) ioctl(fd, FIOCLEX, (PTR) 0)
+#endif
+
 
 /* We store dynamically created files on a linked linear
    list with move to the front (big surprise)  */
@@ -38,8 +70,10 @@ typedef struct file {
 struct file *link ;
 STRING  *name ;
 short type ;
-#if   ! DOS
+#if   ! MSDOS
+#ifndef THINK_C
 int pid ;  /* we need to wait() when we close an out pipe */
+#endif
 #endif
 PTR   ptr ;  /* FIN*   or  FILE*   */
 }  FILE_NODE ;
@@ -77,8 +111,11 @@ PTR  file_find( sval, type )
 
         case  PIPE_OUT :
         case  PIPE_IN :
-#if   DOS
-            rt_error("pipes not supported under MsDOS") ;
+#if   MSDOS
+            rt_error("pipes not supported under MSDOS") ;
+#else
+#ifdef THINK_C
+            rt_error("pipes not supported on the Macintosh Toy Operating System") ;
 #else
             if ( !(p->ptr = get_pipe(name, type, &p->pid)) )
                 if ( type == PIPE_OUT ) goto out_failure ;
@@ -86,6 +123,7 @@ PTR  file_find( sval, type )
                 { zfree(p, sizeof(FILE_NODE) ) ;
                   return (PTR) 0 ;
                 }
+#endif
 #endif
             break ;
 
@@ -146,8 +184,10 @@ int  file_close( sval )
 
             case  PIPE_OUT :
                 (void) fclose((FILE *) p->ptr) ;
-#if  ! DOS
+#if  ! MSDOS
+#ifndef THINK_C
                 (void) wait_for(p->pid) ;
+#endif
 #endif
                 break ;
 
@@ -172,7 +212,8 @@ int  file_close( sval )
 
 /* When we exit, we need to close and wait for all output pipes */
 
-#if   !DOS
+#if   !MSDOS
+#ifndef THINK_C
 void close_out_pipes()
 { register FILE_NODE *p = file_list ;
 
@@ -183,22 +224,24 @@ void close_out_pipes()
   }
 }
 #endif
+#endif
 
+/* hardwire to /bin/sh for portability of programs */
+char *shell = "/bin/sh" ;
 
-char *shell ;
-
-#if  !  DOS
+#if  !  MSDOS
+#ifndef THINK_C
 PTR get_pipe( name, type, pid_ptr)
   char *name ;
   int type ;
   int *pid_ptr ;
 { int the_pipe[2], local_fd, remote_fd ;
 
-  if ( ! shell ) shell = (shell = getenv("SHELL")) ? shell :"/bin/sh" ;
-  
   if ( pipe(the_pipe) == -1 )  return (PTR) 0 ;
   local_fd = the_pipe[type == PIPE_OUT] ;
   remote_fd = the_pipe[type == PIPE_IN ] ;
+  /* to keep output ordered correctly */
+  fflush(stdout) ; fflush(stderr) ;
 
   switch( *pid_ptr = fork() )
   { case -1 :  
@@ -213,14 +256,14 @@ PTR get_pipe( name, type, pid_ptr)
         (void) close( remote_fd ) ;
         (void) execl(shell, shell, "-c", name, (char *) 0 ) ;
         errmsg(errno, "failed to exec %s -c %s" , shell, name) ;
-	fflush(stderr) ;
+        fflush(stderr) ;
         _exit(128) ;
 
     default :
         (void) close(remote_fd) ;
         /* we could deadlock if future child inherit the local fd ,
            set close on exec flag */
-        (void) fcntl(local_fd, F_SETFD, 1) ;
+        CLOSE_ON_EXEC(local_fd) ;
         break ;
   }
 
@@ -296,4 +339,5 @@ int wait_for(pid)
   return exit_status ;
 }
         
+#endif
 #endif

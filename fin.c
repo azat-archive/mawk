@@ -4,16 +4,62 @@ fin.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	fin.c,v $
+ * Revision 3.5.1.1  91/09/14  17:23:21  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.5  91/08/13  06:51:29  brennan
+ * VERSION .9994
+ * 
+ * Revision 3.4  91/07/19  07:51:04  brennan
+ * escape sequence now recognized in command line assignments
+ * 
+ * Revision 3.3  91/07/17  10:45:27  brennan
+ * changes in command line files -- dictated by posix;
+ * Not a big deal, but better this way
+ * version 0.9992
+ * 
+ * Revision 3.2  91/06/28  04:16:43  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/08  06:14:33  brennan
+ * VERSION 0.995
+ * 
+ * Revision 2.10  91/06/08  06:05:55  brennan
+ * When changing main_fin, FINgets had a bozo -- it only worked by a fluke
+ * related to the design of zmalloc.  Fixed by returning new value of
+ * main_fin from next_main().  Also now mark eof on main_fin differently.
+ * 
+ * Revision 2.9  91/06/06  09:42:05  brennan
+ * added HAVE_FCNTL
+ * 
+ * Revision 2.8  91/06/04  09:10:50  brennan
+ * added some ptr casts
+ * 
+ * Revision 2.7  91/05/30  09:04:44  brennan
+ * input buffer can grow dynamically
+ * 
+ * Revision 2.6  91/05/28  09:04:48  brennan
+ * removed main_buff
+ * 
+ * Revision 2.5  91/05/23  08:05:51  brennan
+ * removed fdopen() proto
+ * 
+ * Revision 2.4  91/05/22  07:44:10  brennan
+ * removed unused variable
+ * 
+ * Revision 2.3  91/05/15  12:07:36  brennan
+ * dval hash table for arrays
+ * 
+ * Revision 2.2  91/05/06  15:01:04  brennan
+ * flush output before fork
+ * 
  * Revision 2.1  91/04/08  08:23:09  brennan
  * VERSION 0.97
  * 
@@ -28,32 +74,32 @@ program in source or binary form.
 #include "field.h"
 #include "symtype.h"
 #include "scan.h"
+
+#if  HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
 
+/* This file handles input buffering */
+
+#ifndef MSDOS_MSC
 extern int errno ;
+#endif
 int PROTO(isatty, (int) ) ;
-FILE *PROTO(fdopen, (int, char*) ) ;
 
-/* statics */
-int  PROTO( next_main, (void) ) ;
-int  PROTO( is_cmdline_assign, (char *) ) ;
+static FIN *PROTO( next_main, (int) ) ;
+static int  PROTO( is_cmdline_assign, (char *) ) ;
+static char *PROTO( enlarge_fin_buffer, (FIN *) ) ;
+static void PROTO(set_main_to_stdin, (void) ) ;
 
 FIN  *FINdopen( fd, main_flag )
   int fd , main_flag ;
 { register FIN *fin = (FIN *) zmalloc( sizeof(FIN) ) ;
 
   fin->fd = fd ;
-
-  if ( main_flag )
-  { fin->flags = MAIN_FLAG ;
-    fin->buffp = fin->buff = main_buff ;
-  }
-  else
-  { 
-    fin->flags = 0 ;
-    fin->buffp = fin->buff = (char *) zmalloc(BUFFSZ+1) ;
-  }
-  *fin->buffp = 0 ;
+  fin->flags = main_flag ? MAIN_FLAG : 0 ;
+  fin->buffp = fin->buff = (char *) zmalloc(BUFFSZ+1) ;
+  fin->nbuffs = 1 ;
+  fin->buff[0] = 0 ;
 
   if ( isatty(fd) && rs_shadow.type == SEP_CHAR 
        && rs_shadow.c == '\n' )
@@ -74,18 +120,24 @@ FIN  *FINopen( filename, main_flag )
   int main_flag ;
 { int fd ;
 
+  if ( filename[0] == '-' && filename[1] == 0 )
+      return  FINdopen(0, main_flag) ;
+
+#ifdef THINK_C
+  if ( (fd = open( filename , O_RDONLY )) == -1 )
+#else
   if ( (fd = open( filename , O_RDONLY, 0 )) == -1 )
+#endif
   { errmsg( errno, "cannot open %s" , filename ) ;
     return (FIN *) 0 ; }
 
-  else  return  FINdopen( fd, main_flag ) ;
+  return  FINdopen( fd, main_flag ) ;
 }
 
 void  FINclose( fin )
   register FIN *fin ;
 {
-  if ( ! (fin->flags & MAIN_FLAG) )  
-        zfree(fin->buff, BUFFSZ+1) ;
+  zfree(fin->buff, fin->nbuffs*BUFFSZ + 1) ;
 
   if ( fin->fd )  
         if ( fin->fp )  (void) fclose(fin->fp) ;
@@ -110,7 +162,8 @@ restart :
   if ( ! (p = fin->buffp)[0] )  /* need a refill */
   { 
     if ( fin->flags & EOF_FLAG )
-        if ( (fin->flags & MAIN_FLAG) && next_main() )  goto restart ;
+        if ( fin->flags & MAIN_FLAG )
+	{ fin = next_main(0) ;  goto restart ; }
         else
         { *len_p = 0 ; return (char *) 0 ; }
         
@@ -129,18 +182,29 @@ restart :
 
         *p = 0 ; *len_p = p - fin->buff ;
         fin->buffp = p ;
+#ifdef THINK_C
+	/*
+	 *  I still don't understand why this is needed, unless fgets()
+	 *  also does this conversion internally for no good reason.  :-(
+	 */
+        for ( p = fin->buff ; *p ; ++p )
+	    {
+	    if (*p == '\n')       *p = '\r';
+	    else if (*p == '\r')  *p = '\n';
+	    }
+#endif
         return  fin->buff ;
       }
     else  /* block buffering */
     {
-      if ( (r = fillbuff(fin->fd, fin->buff, BUFFSZ)) == 0 )
+      if ( (r = fillbuff(fin->fd, fin->buff, fin->nbuffs*BUFFSZ)) == 0 )
       {
         fin->flags |= EOF_FLAG ;
         fin->buffp = fin->buff ;
         goto restart ; /* might be main */
       }
       else
-      if ( r < BUFFSZ )  fin->flags |= EOF_FLAG ;
+      if ( r < fin->nbuffs*BUFFSZ )  fin->flags |= EOF_FLAG ;
 
       p = fin->buffp = fin->buff ;
     }
@@ -162,15 +226,16 @@ retry:
 
     case SEP_RE :
             q = re_pos_match(p, rs_shadow.ptr, &match_len) ;
-            /* if the match is at the end, there might be more
-               still to be read */
-            if ( q && q[match_len] == 0 &&
-                 p != fin->buff )  q = (char *) 0 ;
+            /* if the match is at the end, there might still be
+	       more to match in the file */
+            if ( q && q[match_len] == 0 && ! (fin->flags & EOF_FLAG))
+		 q = (char *) 0 ;
             break ;
             
     default :
             bozo("type of rs_shadow") ;
   }
+
   if ( q )
   {  /* the easy and normal case */
      *q = 0 ;  *len_p = q - p ;
@@ -178,29 +243,43 @@ retry:
      return p ;
   }
 
-  if ( p == fin->buff )  /* last line or one huge (truncated) line */
-  { *len_p = r = strlen(p) ;  fin->buffp = p + r ;
-    /* treat truncated case as overflow */
-    if ( r == BUFFSZ ) 
-    { /* overflow, update NR and FNR */
-      cast2_to_d(bi_vars+NR) ;
-      bi_vars[NR].dval += 1.0 ;
-      bi_vars[FNR].dval += 1.0 ;
-      rt_overflow("maximum record length" , BUFFSZ) ;
-    }
-     return p ;
+  if ( fin->flags & EOF_FLAG )
+  { /* last line without a record terminator */
+    *len_p = r = strlen(p) ; fin->buffp = p+r ;
+    return p ;
   }
 
-  /* move a partial line to front of buffer and try again */
-  p = (char *) memcpy( fin->buff, p, r = strlen(p) ) ;
-  q = p+r ; 
-  if ( fin->flags & EOF_FLAG ) *q = 0 ;
-  else 
-  { unsigned rr = BUFFSZ - r ;
+  if ( p == fin->buff )  
+  { /* current record is too big for the input buffer, grow buffer */
+    p = enlarge_fin_buffer(fin) ;
+  }
+  else
+  {
+    /* move a partial line to front of buffer and try again */
+    unsigned rr ;
+
+    p = (char *) memcpy( fin->buff, p, SIZE_T(r = strlen(p)) ) ;
+    q = p+r ;  rr = fin->nbuffs*BUFFSZ - r ;
 
     if ( (r = fillbuff(fin->fd, q, rr)) < rr ) fin->flags |= EOF_FLAG ;
   }
   goto retry ;
+}
+
+static char *enlarge_fin_buffer(fin)
+  FIN *fin ;
+{
+  unsigned r ;
+  unsigned oldsize = fin->nbuffs*BUFFSZ+1 ;
+
+  fin->buffp = 
+  fin->buff = (char *) zrealloc(fin->buff, oldsize, oldsize+BUFFSZ);
+  fin->nbuffs++ ;
+
+  r = fillbuff(fin->fd, fin->buff + (oldsize-1) , BUFFSZ ) ;
+  if ( r < BUFFSZ ) fin->flags |= EOF_FLAG ;
+
+  return fin->buff ;
 }
 
 /*--------
@@ -213,11 +292,14 @@ unsigned  fillbuff(fd, target, size)
   unsigned size ;
 { register int r ;
   unsigned entry_size = size ;
+#ifdef THINK_C
+  register char *p = target;
+#endif
 
   while ( size )
     switch( r = read(fd, target, size) )
     { case -1 :
-        errmsg(errno, "read error on file") ;
+        errmsg(errno, "read error") ;
         exit(1) ;
 
       case 0 :
@@ -230,44 +312,62 @@ unsigned  fillbuff(fd, target, size)
 
 out :
   *target = 0 ;
+#ifdef THINK_C
+  /*
+   *  I still don't understand why this is needed, unless read() also does
+   *  this conversion internally for no good reason.  :-(
+   */
+  for ( ; *p ; ++p )
+    {
+      if (*p == '\r')
+	*p = '\n';
+      else if (*p == '\n')
+	*p = '\r';
+    }
+#endif
   return  entry_size - size ;
 }
 
 /* main_fin is a handle to the main input stream
-   == -1 if never tried to open 
-   == 0  if end of stream
-      otherwise active    */
-FIN *main_fin = (FIN *) -1 ;
-ARRAY   Argv ;   /* to the user this is ARGV  */
-static int argi = 1 ;  /* index of next ARGV[argi] to try to open */
+   == 0  never been opened   */
 
-int  open_main()  /* boolean return, true if main is open */
-{ 
-  if ( bi_vars[ARGC].type == C_DOUBLE && bi_vars[ARGC].dval == 1.0 )
-  { cell_destroy( bi_vars + FILENAME ) ;
+FIN *main_fin ;
+ARRAY   Argv ;   /* to the user this is ARGV  */
+static double argi = 1.0 ;  /* index of next ARGV[argi] to try to open */
+
+
+static void  set_main_to_stdin()
+{
+    cell_destroy( bi_vars + FILENAME ) ;
     bi_vars[FILENAME].type = C_STRING ;
     bi_vars[FILENAME].ptr = (PTR) new_STRING( "-") ;
     main_fin = FINdopen(0, 1) ;
-    return  1 ;
-  }
-  else    return next_main() ;
+}
+   
+
+void  open_main()  
+{ CELL argc ;
+
+  (void) cellcpy(&argc, bi_vars+ARGC) ;
+  if ( argc.type != C_DOUBLE ) cast1_to_d(&argc) ;
+
+  if ( argc.dval == 1.0 )  set_main_to_stdin() ;
+  else  (void)  next_main(1) ;
 }
 
-static  int  next_main()
-{ char xbuff[16] ;
+static  FIN  *next_main(open_flag)
+  int open_flag ; /* called by open_main() if on */
+{ 
   register CELL *cp ;
-  STRING *sval ;
-  CELL   argc ;  /* temp copy of ARGC */
-  CELL   tc ;    /* copy of ARGV[argi] */
-  double d_argi ;
+  CELL   argc ;  /* copy of ARGC */
+  CELL   c_argi ; /* cell copy of argi */
+  CELL   argval ;    /* copy of ARGV[c_argi] */
 
-#ifdef  DEBUG
-  if ( ! main_fin ) bozo("call to next_main with dead main") ;
-#endif
 
-  tc.type = C_NOINIT ;
+  argval.type = C_NOINIT ;
+  c_argi.type = C_DOUBLE ;
 
-  if ( main_fin != (FIN *)-1 )  FINclose(main_fin) ;
+  if ( main_fin )  FINclose(main_fin) ;
   cell_destroy( bi_vars + FILENAME ) ;
   cell_destroy( bi_vars + FNR ) ;
   bi_vars[FNR].type = C_DOUBLE ;
@@ -275,73 +375,72 @@ static  int  next_main()
 
   if ( cellcpy(&argc, &bi_vars[ARGC])->type != C_DOUBLE )
           cast1_to_d(&argc) ;
-  xbuff[1] = 0 ;
-  d_argi = (double) argi ;
-
-  while ( d_argi < argc.dval )
+  
+  while ( argi < argc.dval )
   {
-    if ( argi < 10 )  xbuff[0] = argi + '0' ;
-    else  (void) sprintf(xbuff, "%u", argi) ;
+    c_argi.dval = argi ;
+    argi += 1.0 ;
 
-    argi++ ; d_argi += 1.0 ;
-    sval = new_STRING(xbuff) ;
-
-    /* the user might have changed ARGC or deleted 
-       ARGV[argi] -- test for existence without side effects */
-    
-    if ( ! array_test(Argv, sval) )
-    { free_STRING(sval) ; continue ; }
-
-    cp = array_find( Argv, sval, 0) ;
-    free_STRING(sval) ;
+    if ( !(cp = array_find( Argv, &c_argi, NO_CREATE)) )
+        continue ; /* its deleted */
 
     /* make a copy so we can cast w/o side effect */
-    cell_destroy(&tc) ;
-    cp = cellcpy(&tc, cp) ;
+    cell_destroy(&argval) ;
+    cp = cellcpy(&argval, cp) ;
     if ( cp->type < C_STRING )  cast1_to_s(cp) ;
     if ( string(cp)->len == 0 )  continue ;
 
-    if ( string(cp)->len == 1 && string(cp)->str[0] == '-' )
-    { /* input from stdin */
-      main_fin = FINdopen(0,1) ;
-    }
-    else  /* it might be a command line assignment */
+    /* it might be a command line assignment */
     if ( is_cmdline_assign(string(cp)->str) )  continue ;
 
-    else /* try to open it */
-    if ( ! (main_fin = FINopen( string(cp)->str, 1 )) ) continue ;
+    /* try to open it -- we used to continue on failure, 
+       but posix says we should quit */
+    if ( ! (main_fin = FINopen( string(cp)->str, 1 )) ) exit(1) ;
 
     /* success */
     (void) cellcpy( &bi_vars[FILENAME] , cp ) ;
     free_STRING( string(cp) ) ;
-    return 1 ;
+    return  main_fin ;
   }
   /* failure */
+  cell_destroy(&argval) ;
+
+  if ( open_flag )  /* all arguments were null or assignment */
+  { set_main_to_stdin() ;  return  main_fin ; }
+    
+  /* real failure */
   bi_vars[FILENAME].type = C_STRING ;
   bi_vars[FILENAME].ptr = (PTR) new_STRING( "" ) ;
-  main_fin = (FIN *) 0 ;
-  cell_destroy(&tc) ;
-  return 0 ;
+
+  { /* this is how we mark EOF on main_fin  */
+    static char dead_buff = 0 ;
+    static FIN  dead_main = {0, (FILE*)0, &dead_buff, &dead_buff,
+       1, EOF_FLAG} ;
+
+    return  main_fin = &dead_main ;
+    /* since MAIN_FLAG is not set, FINgets won't call next_main() */
+  }
 }
     
 
 static int is_cmdline_assign(s)
   char *s ;
-{ char *q;
-  unsigned char *p ;
+{ 
+  register char *p ;
   int c ;
   SYMTAB *stp ;
   CELL *cp ;
+  unsigned len ;
 
-  if ( scan_code[*(unsigned char *)s] != SC_IDCHAR 
-       || !(q = strchr(s,'=')) ) return 0 ;
+  if ( scan_code[*(unsigned char *)s] != SC_IDCHAR ) return 0 ;
 
-  p = (unsigned char *)s+1 ;
-  while ( (c = scan_code[*p]) == SC_IDCHAR || c == SC_DIGIT ) p++ ;
+  p = s+1 ;
+  while ( (c = scan_code[*(unsigned char*)p]) == SC_IDCHAR 
+	  || c == SC_DIGIT ) p++ ;
 
-  if ( (char *)p < q )  return 0 ;
+  if ( *p != '=' )  return 0 ;
 
-  *q = 0 ;
+  *p = 0 ;
   stp = find(s) ;
 
   switch( stp->type )
@@ -361,8 +460,13 @@ static int is_cmdline_assign(s)
           , s ) ;
   }
   
-  *q++ = '=' ;
-  cp->ptr = (PTR) new_STRING(q) ;
+  /* we need to keep ARGV[i] intact */
+  *p++ = '=' ;
+  len = strlen(p)+1 ;
+  /* posix says escape sequences are on from command line */
+  p = rm_escape( strcpy((char*)zmalloc(len), p) ) ;
+  cp->ptr = (PTR) new_STRING(p) ;
+  zfree(p,len) ;
   check_strnum(cp) ;
   return 1 ;
 }

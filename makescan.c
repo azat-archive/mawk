@@ -4,18 +4,22 @@ makescan.c
 copyright 1991, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
-the Awk programming language as defined in
-Aho, Kernighan and Weinberger, The AWK Programming Language,
-Addison-Wesley, 1988.
+the AWK programming language.
 
-See the accompaning file, LIMITATIONS, for restrictions
-regarding modification and redistribution of this
-program in source or binary form.
+Mawk is distributed without warranty under the terms of
+the GNU General Public License, version 2, 1991.
 ********************************************/
 
-
-
 /*$Log:	makescan.c,v $
+ * Revision 3.2.1.1  91/09/14  17:23:42  brennan
+ * VERSION 1.0
+ * 
+ * Revision 3.2  91/06/28  04:17:00  brennan
+ * VERSION 0.999
+ * 
+ * Revision 3.1  91/06/07  10:27:51  brennan
+ * VERSION 0.995
+ * 
  * Revision 2.1  91/04/08  08:23:29  brennan
  * VERSION 0.97
  * 
@@ -24,6 +28,17 @@ program in source or binary form.
 /* source for makescan.exe which builds the scancode[]
    via:   makescan.exe > scancode.c
 */
+
+#ifdef THINK_C
+#include <stdio.h>
+#include <console.h>
+#include <string.h>
+#define SIZE_T(x) (size_t)(x)
+#endif
+
+#ifndef SIZE_T
+#define SIZE_T(x) (x)
+#endif
 
 #define  MAKESCAN
 
@@ -35,7 +50,7 @@ void  scan_init()
 { 
   register char *p ;
 
-  (void) memset(scan_code, SC_UNEXPECTED, sizeof(scan_code)) ;
+  (void) memset(scan_code, SC_UNEXPECTED, SIZE_T(sizeof(scan_code))) ;
   for( p = scan_code + '0' ; p <= scan_code + '9' ; p++ )
        *p = SC_DIGIT ;
   scan_code[0] = 0 ;
@@ -100,8 +115,15 @@ void scan_print()
 }
 
 
-main()
+int main(argc,argv)
+int argc;
+char **argv;
 {
+#ifdef THINK_C
+fprintf(stderr, "MAKESCAN for MacMAWK\n");
+SetWTitle( FrontWindow(), "\pPC-KIMMO");
+argc = ccommand(&argv);
+#endif
   scan_init() ; scan_print() ;
   return 0 ;
 }
