@@ -12,6 +12,9 @@ the GNU General Public License, version 2, 1991.
 
 
 /*   $Log:	mawk.h,v $
+ * Revision 5.4  92/03/03  16:34:41  brennan
+ * conditional around open() proto
+ * 
  * Revision 5.3  92/01/09  08:46:58  brennan
  * cell destroy macro
  * 
@@ -146,11 +149,20 @@ char *PROTO( re_pos_match, (char *, PTR, unsigned *) ) ;
 int   PROTO( binmode, (void)) ;
 
 void  PROTO( exit, (int) ) ;
+
 #ifdef THINK_C
 #include <unix.h>
 #else
 int   PROTO( close, (int) ) ;
+
+/* ANSI compilers won't like open() if they've ever seen open as
+   int open(char *,int, ...).  If so remove it.
+*/
+
+#ifndef _IBMR2 /* AIX */
 int   PROTO( open, (char *,int, int) ) ;
+#endif
+
 int   PROTO( read, (int , PTR, unsigned) ) ;
 #endif
 

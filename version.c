@@ -11,6 +11,9 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	version.c,v $
+ * Revision 5.3  92/03/03  16:42:23  brennan
+ * patch 1
+ * 
  * Revision 5.2  92/01/22  05:34:10  brennan
  * version 1.1
  * 
@@ -23,7 +26,7 @@ the GNU General Public License, version 2, 1991.
 #include "patchlev.h"
 
 #define  VERSION_STRING  \
-  "mawk 1.1%s%s Dec 1991, Copyright (C) Michael D. Brennan\n\n"
+  "mawk 1.1%s%s Feb 1992, Copyright (C) Michael D. Brennan\n\n"
 
 #define  DOS_STRING     ""
 

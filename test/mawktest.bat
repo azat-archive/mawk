@@ -47,3 +47,4 @@ if errorlevel 1 goto :done
 echo if fc always encountered "no differences", then the tested mawk seems OK
 :done
 del temp$$
+set dat=

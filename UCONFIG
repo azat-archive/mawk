@@ -29,6 +29,9 @@ stardentVr3
 apolloSR10.3
 dynix
 mips
+next				cc is gcc
+sgi
+aix
 
 atarist				cross compile with gcc
 
@@ -98,5 +101,13 @@ dynix
 mips
    	MIPS M2000 	C 2.20 (4.52)
 
+next
+	Next OS 2.1
+
+sgi	
+	IRIX 4.0.1
+
+aix
+	RS/6000		running AIX 3.1
 atarist
 	atari ST/StE/TT series with gcc

@@ -1,7 +1,7 @@
 
 /********************************************
 print.c
-copyright 1991, Michael D. Brennan
+copyright 1992, 1991.  Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -11,6 +11,10 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log:	print.c,v $
+ * Revision 5.2  92/02/24  10:52:16  brennan
+ * printf and sprintf() can now have more args than % conversions
+ * removed HAVE_PRINTF_HD -- it was too obscure
+ * 
  * Revision 5.1  91/12/05  07:56:22  brennan
  * 1.1 pre-release
  * 
@@ -26,7 +30,6 @@ the GNU General Public License, version 2, 1991.
 
 static void  PROTO( print_cell, (CELL *, FILE *) ) ;
 static STRING* PROTO( do_printf, (FILE *, char *, unsigned, CELL *) ) ;
-static void  PROTO( arg_error, (char *, char *, char *) ) ;
 static void  PROTO( bad_conversion, (int, char *, char *)) ;
 
 
@@ -130,13 +133,6 @@ typedef int (*PRINTER)() ;
 
 /*-------------------------------------------------------*/
 
-static void  arg_error( few_or_many, who, format)
-  char *few_or_many , *who, *format ;
-{
-  rt_error("too %s arguments passed to %s(\"%s\")",
-    few_or_many, who, format) ;
-}
-
 static void bad_conversion(cnt, who, format)
   int cnt ; 
   char *who , *format ;
@@ -185,20 +181,18 @@ static STRING *do_printf( fp, format, argcnt, cp)
 
   while ( 1 )
   { 
-    if ( fp )
+    if ( fp )  /* printf */
     {
       while ( *q != '%' )
-	if ( *q == 0 )
-            if ( argcnt == 0 )  return (STRING *) 0 ;
-            else arg_error("many", who, format) ;
+	if ( *q == 0 )  return (STRING *) 0 ;
 	else
 	{ putc(*q,fp) ; q++ ; }
     }
-    else
+    else  /* sprintf */
     {
       while ( *q != '%' )
 	if ( *q == 0 )
-	    if ( argcnt == 0 ) /* done */
+	{
 		if ( target > sprintf_limit ) /* damaged */
 		{
 		  /* hope this works */
@@ -214,7 +208,7 @@ static STRING *do_printf( fp, format, argcnt, cp)
 		  (void)memcpy(retval->str, sprintf_buff, SIZE_T(len)) ;
 		  return retval ;
 		}
-            else arg_error("many", who, format) ;
+	}
 	else  *target++ = *q++ ;
     }
        
@@ -259,15 +253,15 @@ static STRING *do_printf( fp, format, argcnt, cp)
       while ( scan_code[*(unsigned char*)q] == SC_DIGIT ) q++ ; 
     }
 
-    if ( argcnt <= 0 )  arg_error("few", who, format) ;
+    if ( argcnt <= 0 )  
+        rt_error("not enough arguments passed to %s(\"%s\")",
+		  who, format) ;
+
     l_flag = h_flag = 0 ;
 
     if ( *q == 'l' ) { q++ ; l_flag = 1 ; }
-
-#if HAVE_PRINTF_HD
     else
     if ( *q == 'h' ) { q++ ; h_flag = 1 ; }
-#endif
 
     switch( *q++ )
     {
@@ -318,9 +312,8 @@ static STRING *do_printf( fp, format, argcnt, cp)
       case 'u' :
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
             lval = (long) cp->dval ;
-#if HAVE_PRINTF_HD
 	    if ( h_flag ) lval &= 0xffff ;
-#endif
+
             pf_type = l_flag ? PF_LD : PF_D ;
             break ;
     

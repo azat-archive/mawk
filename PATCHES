@@ -1,0 +1,34 @@
+
+
+patch1:  mawk1.1 to mawk1.1.1
+
+1) fixed bug which caused 
+
+	mawk 'program'  var=value
+
+without files on the command line to sporadically fail.
+
+2) fixed bug which caused
+
+	getline <=
+
+to be mistaken for input redirection.
+
+3) Changed rexp1.c to work around a bug in sun SC1.0 compiler.
+
+4) Minor improvements to build_mawk script.
+
+5) changed the name of ultrix42_mips.h to ultrix42mips.h so
+   the filename is 14 characters.
+
+6) printf() and sprintf() can now have more arguments than 
+conversions in the format string.  This allows a "poor man's" varargs
+functionality for user functions that do output.
+
+7) new configurations:
+
+      next, sgi, aix
+
+8) removed HAVE_PRINTF_HD define as too obscure to be useful.
+
+9) added missing config/apollo.h file.

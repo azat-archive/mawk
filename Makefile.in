@@ -92,6 +92,7 @@ parse.c  : parse.y  parse2.xc
 
 scancode.c :  makescan.c  scan.h
 	$(CC) -o makescan.exe  makescan.c
+	rm -f scancode.c
 	./makescan.exe > scancode.c
 	rm makescan.exe
 

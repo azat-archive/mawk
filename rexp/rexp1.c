@@ -11,6 +11,9 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	rexp1.c,v $
+ * Revision 3.4  92/02/20  16:08:12  brennan
+ * change new_TWO() to work around sun acc bug
+ * 
  * Revision 3.3  91/10/29  10:54:01  brennan
  * SIZE_T
  * 
@@ -26,55 +29,78 @@ the GNU General Public License, version 2, 1991.
 
 #include  "rexp.h"
 
-static MACHINE *PROTO( new_TWO , (int) ) ;
+static void PROTO( new_TWO , (int, MACHINE *) ) ;
 
 
-static  MACHINE  *new_TWO(type)
+
+/* initialize a two state machine */
+static  void new_TWO(type, mp)
   int type ;
+  MACHINE *mp ; /* init mp-> */
 { 
-  static  MACHINE  x ;
-
-  x.start = (STATE *) RE_malloc(2*STATESZ) ;
-  x.stop = x.start + 1 ;
-  x.start->type = type ;
-  x.stop->type = M_ACCEPT ;
-  return &x ;
-} ;
-
+  mp->start = (STATE *) RE_malloc(2*STATESZ) ;
+  mp->stop = mp->start + 1 ;
+  mp->start->type = type ;
+  mp->stop->type = M_ACCEPT ;
+}
 
 /*  build a machine that recognizes any  */
 MACHINE  RE_any()
-{ return  * new_TWO(M_ANY) ; }
+{
+  MACHINE x ;
+
+  new_TWO(M_ANY, &x) ;
+  return x ;
+}
 
 /*  build a machine that recognizes the start of string  */
 MACHINE  RE_start()
-{ return  * new_TWO(M_START) ; }
+{
+  MACHINE x ;
+
+  new_TWO(M_START, &x) ;
+  return x ;
+}
 
 MACHINE  RE_end()
-{ return  * new_TWO(M_END) ; }
+{
+  MACHINE x ;
+
+  new_TWO(M_END, &x) ;
+  return x ;
+}
 
 /*  build a machine that recognizes a class  */
 MACHINE  RE_class( bvp )
   BV *bvp  ;
-{ register MACHINE *p = new_TWO(M_CLASS) ;
+{ 
+  MACHINE x ;
 
-  p->start->data.bvp = bvp ;
-  return *p ;
+  new_TWO(M_CLASS, &x) ;
+  x.start->data.bvp = bvp ;
+  return x ;
 }
 
-
 MACHINE  RE_u()
-{ return  *new_TWO(M_U) ; }
+{
+  MACHINE x ;
+
+  new_TWO(M_U, &x) ;
+  return x ;
+}
 
 MACHINE  RE_str( str, len)
   char *str ;
   unsigned len ;
-{ register MACHINE *p = new_TWO(M_STR) ;
+{ 
+  MACHINE x ;
 
-  p->start->len = len ;
-  p->start->data.str = str ;
-  return *p ;
+  new_TWO(M_STR, &x) ;
+  x.start->len = len ;
+  x.start->data.str = str ;
+  return x ;
 }
+
 
 /*  replace m and n by a machine that recognizes  mn   */
 void  RE_cat( mp, np)

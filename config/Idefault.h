@@ -1,7 +1,7 @@
 
 /********************************************
 Idefault.h
-copyright 1991, Michael D. Brennan
+copyright 1991, 1992.  Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -12,6 +12,9 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log:	Idefault.h,v $
+ * Revision 3.13  92/03/03  16:40:56  brennan
+ * remove HAVE_PRINTF_HD
+ * 
  * Revision 3.12  91/11/16  15:37:29  brennan
  * add NO_BINMODE
  * 
@@ -131,11 +134,6 @@ the GNU General Public License, version 2, 1991.
 
 #ifndef  HAVE_FCNTL_H
 #define  HAVE_FCNTL_H		1
-#endif
-
-/* printf and sprintf don't recognize "%hd" */
-#ifndef  HAVE_PRINTF_HD
-#define  HAVE_PRINTF_HD		0
 #endif
 
 /* have pipes */

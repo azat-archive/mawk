@@ -11,6 +11,10 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log:	fin.c,v $
+ * Revision 5.2  92/02/21  13:30:08  brennan
+ * fixed bug that free'd FILENAME twice if 
+ * command line was var=value only
+ * 
  * Revision 5.1  91/12/05  07:56:02  brennan
  * 1.1 pre-release
  * 
@@ -370,6 +374,8 @@ static  FIN  *next_main(open_flag)
 
   if ( main_fin )  FINclose(main_fin) ;
   cell_destroy( FILENAME ) ;
+  FILENAME->type = C_NOINIT ; 
+     /* so don't free again if we go to set_main_to_stdin() */
   cell_destroy( FNR ) ;
   FNR->type = C_DOUBLE ;
   FNR->dval = 0.0 ;
@@ -396,7 +402,7 @@ static  FIN  *next_main(open_flag)
 
     /* try to open it -- we used to continue on failure, 
        but posix says we should quit */
-    if ( ! (main_fin = FINopen( string(cp)->str, 1 )) ) exit(1) ;
+    if ( ! (main_fin = FINopen( string(cp)->str, 1 )) ) mawk_exit(1) ;
 
     /* success */
     (void) cellcpy(FILENAME , cp ) ;
@@ -456,6 +462,7 @@ int is_cmdline_assign(s)
     case  ST_VAR :
     case  ST_NR : /* !! no one will do this */
         cp = stp->stval.cp ;
+	cell_destroy(cp) ;
         break ;
 
     case  ST_FIELD :
@@ -477,7 +484,7 @@ int is_cmdline_assign(s)
   p = rm_escape( strcpy((char*)zmalloc(len), p) ) ;
   cp->ptr = (PTR) new_STRING(p) ;
   zfree(p,len) ;
-  check_strnum(cp) ;
+  check_strnum(cp) ;  /* sets cp->type */
   if ( fp ) /* move it from cell to pfield[] */
   { field_assign(fp, cp) ; free_STRING(string(cp)) ; }
   return 1 ;

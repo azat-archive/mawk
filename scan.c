@@ -12,6 +12,9 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log:	scan.c,v $
+ * Revision 5.2  92/02/21  14:16:53  brennan
+ * fix:  getline <=
+ * 
  * Revision 5.1  91/12/05  07:56:27  brennan
  * 1.1 pre-release
  * 
@@ -354,10 +357,12 @@ reswitch:
 
 
       case  SC_LT  :  /* '<' */
+	  if ( next() == '=' ) ct_ret(LTE) ;
+	  else  un_next() ;
+
           if ( getline_flag )
           { getline_flag = 0 ; ct_ret(IO_IN) ; }
-          else
-            test1_ret('=', LTE, LT) ;
+          else  ct_ret(LT) ;
 
       case  SC_GT  :  /* '>' */
           if ( print_flag && paren_cnt == 0 )

@@ -1,7 +1,7 @@
 
 /********************************************
 generic.h
-copyright 1991, Michael D. Brennan
+copyright 1991, 1992.  Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -12,6 +12,9 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log:	generic.h,v $
+ * Revision 4.4  92/03/03  16:40:54  brennan
+ * remove HAVE_PRINTF_HD
+ * 
  * Revision 4.3  91/10/29  10:48:26  brennan
  * version 1.09
  * 
@@ -50,8 +53,6 @@ generic conditions:
    have matherr()
    have strtod()
    have fmod()
-
-   printf and sprintf cannot handle "%hd"
 
 
    divison by zero, overflow and library domain errors do not
