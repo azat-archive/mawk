@@ -12,6 +12,13 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log: scan.c,v $
+ * Revision 5.4.1.1  1993/01/15  03:33:50  mike
+ * patch3: safer double to int conversion
+ *
+ * Revision 5.4  1992/11/29  18:57:50  mike
+ * field expressions convert to long so 16 bit and 32 bit
+ * systems behave the same
+ *
  * Revision 5.3  1992/07/08  15:43:41  brennan
  * patch2: length returns.  I am a wimp
  *
@@ -470,14 +477,13 @@ reswitch:
                 if ( flag )  ct_ret(flag) ; /* an error */
                 else  yylval.cp = &field[0] ;
             else
-            { int k = (int) d ;
-
-              if ( k > MAX_FIELD )
+            { 
+              if ( d > MAX_FIELD )
               { compile_error(
                    "$%g exceeds maximum field(%d)" , d, MAX_FIELD) ;
-                k = MAX_FIELD ;
+                d = MAX_FIELD ;
               }
-              yylval.cp = field_ptr(k) ;
+              yylval.cp = field_ptr((int)d) ;
             }
 
             ct_ret(FIELD) ;

@@ -11,6 +11,17 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log: field.c,v $
+ * Revision 5.4.1.2  1993/01/20  12:53:08  mike
+ * d_to_l()
+ *
+ * Revision 5.4.1.1  1993/01/15  03:33:42  mike
+ * patch3: safer double to int conversion
+ *
+ * Revision 5.4  1992/11/29  22:52:11  mike
+ * double->string conversions uses long ints for 16/32 bit
+ * compatibility.
+ * Fixed small LM_DOS bozo.
+ *
  * Revision 5.3  1992/08/17  14:21:10  brennan
  * patch2: After parsing, only bi_sprintf() uses string_buff.
  *
@@ -257,7 +268,11 @@ void  field_assign( fp, cp)
   if ( nf < 0 )  split_field0() ;
 
 #if  LM_DOS
-  if ( !SAMESEG(fp,field) )  goto lm_dos_label ;
+  if ( !SAMESEG(fp,field) )
+  { 
+    i = -1 ;
+    goto lm_dos_label ;
+  }
 #endif
 
   switch( i = (fp - field) )
@@ -269,7 +284,7 @@ void  field_assign( fp, cp)
         (void) cellcpy(NF, cellcpy(&c,cp) ) ;
         if ( c.type != C_DOUBLE )  cast1_to_d(&c) ;
 
-        if ( (j = (int) c.dval) < 0 )
+        if ( (j = d_to_i(c.dval)) < 0 )
             rt_error("negative value assigned to NF") ;
 
         if ( j > nf )
@@ -407,15 +422,18 @@ static void  build_field0()
       if ( cp->type < C_STRING ) 
       { /* use the string field temporarily */
         if ( cp->type == C_NOINIT )
-	{ cp->ptr = (PTR) &null_str ;
+	{ 
+	  cp->ptr = (PTR) &null_str ;
 	  null_str.ref_cnt++ ;
         }
 	else /* its a double */
-	{ int ival ;
+	{ 
+	  long ival ;
 	  char xbuff[260] ;
 
-	  if ( (double)(ival = (int)cp->dval) == cp->dval )
-	    (void) sprintf(xbuff, "%d", ival) ;
+	  ival = d_to_l(cp->dval) ;
+	  if ( ival == cp->dval )
+	    (void) sprintf(xbuff, INT_FMT, ival) ;
 	  else
 	    (void) sprintf(xbuff, string(CONVFMT)->str, cp->dval) ;
 
@@ -582,7 +600,7 @@ int binmode()  /* read current value of BINMODE */
 { CELL c ;
   
   cast1_to_d(cellcpy(&c, BINMODE)) ;
-  return  (int) c.dval ;
+  return  d_to_i(c.dval) ;
 }
 
 /* set BINMODE and RS and ORS 

@@ -11,6 +11,9 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log: sizes.h,v $
+ * Revision 5.3  1992/12/17  02:48:01  mike
+ * 1.1.2d changes for DOS
+ *
  * Revision 5.2  1992/08/27  03:20:08  mike
  * patch2: increase A_HASH_PRIME
  *
@@ -50,6 +53,14 @@ the GNU General Public License, version 2, 1991.
 #define  BUFFSZ         4096
   /* starting buffer size for input files, grows if 
      necessary */
+
+#if      LM_DOS
+/* trade some space for IO speed */
+#undef  BUFFSZ
+#define BUFFSZ		8192
+/* maximum input buffers that will fit in 64K */
+#define  MAX_BUFFS	((int)(0x10000L/BUFFSZ) - 1)
+#endif
 
 #define  HASH_PRIME  53
 

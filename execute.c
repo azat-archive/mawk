@@ -11,6 +11,16 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log: execute.c,v $
+ * Revision 5.7.1.1  1993/01/15  03:33:39  mike
+ * patch3: safer double to int conversion
+ *
+ * Revision 5.7  1992/12/17  02:48:01  mike
+ * 1.1.2d changes for DOS
+ *
+ * Revision 5.6  1992/11/29  18:57:50  mike
+ * field expressions convert to long so 16 bit and 32 bit
+ * systems behave the same
+ *
  * Revision 5.5  1992/08/11  15:24:55  brennan
  * patch2: F_PUSHA and FE_PUSHA
  * If this is preparation for g?sub(r,s,$expr) or (++|--) on $expr,
@@ -47,16 +57,16 @@ the GNU General Public License, version 2, 1991.
 #include "fin.h"
 #include <math.h>
 
-/* static functions */
 static int PROTO( compare, (CELL *) ) ;
-static void PROTO( eval_overflow, (void) ) ;
-
+static int PROTO( d_to_index, (double)) ;
 
 #if   NOINFO_SIGFPE
 static char dz_msg[] = "division by zero" ;
 #endif
 
 #ifdef   DEBUG
+static void PROTO( eval_overflow, (void) ) ;
+
 #define  inc_sp()   if( ++sp == eval_stack+EVAL_STACK_SIZE )\
                          eval_overflow()
 #else
@@ -234,9 +244,10 @@ void  execute(cdp, sp, fp)
             break ;
 
         case  FE_PUSHA :
+
             if ( sp->type != C_DOUBLE )  cast1_to_d(sp) ;
-            if ( (t = (int) sp->dval) < 0 )
-                rt_error( "negative field index $%d", t) ;
+
+	    t = d_to_index(sp->dval) ;
             if ( t && nf < 0 )  split_field0() ;
             sp->ptr = (PTR) field_ptr(t) ;
 	    if ( t > nf )
@@ -251,10 +262,10 @@ void  execute(cdp, sp, fp)
             break ;
 
         case  FE_PUSHI :
+
             if ( sp->type != C_DOUBLE )  cast1_to_d(sp) ;
 
-            if ( (t = (int) sp->dval) < 0 )
-                  rt_error( "negative field index $%d", t) ;
+	    t = d_to_index(sp->dval) ;
 
             if ( nf < 0)  split_field0() ;
             if ( t <= nf ) (void) cellcpy(sp, field_ptr(t)) ;
@@ -914,7 +925,8 @@ void  execute(cdp, sp, fp)
 
         case  _EXIT  :
             if ( sp->type != C_DOUBLE ) cast1_to_d(sp) ;
-            exit_code = (int) sp-- -> dval ;
+            exit_code = d_to_i(sp->dval) ;
+	    sp-- ;
             /* fall thru */
 
         case  _EXIT0 :
@@ -1111,6 +1123,7 @@ reswitch :
     default :
       bozo("bad cell type in call to test") ;
   }
+  return 0 ; /*can't get here: shutup */
 }
 
 /* compare cells at cp and cp+1 and
@@ -1162,6 +1175,7 @@ reswitch :
     default :  /* there are no default cases */
             bozo("bad cell type passed to compare") ;
   }
+  return 0 ; /* shut up */
 }
 
 /* does not assume target was a cell, if so
@@ -1229,3 +1243,21 @@ void  DB_cell_destroy(cp)    /* HANGOVER time */
 }
 
 #endif
+
+
+
+/* convert a double d to a field index  $d -> $i */
+static int
+d_to_index( d ) 
+  double d ;
+{
+
+  if ( d > MAX_FIELD ) 
+		rt_overflow("maximum number of fields", MAX_FIELD) ;
+  
+  if ( d >= 0.0 )  return (int) d ;
+  
+  /* might include nan */
+  rt_error("negative field index $%.6g", d) ;
+  return 0 ; /* shutup */
+}

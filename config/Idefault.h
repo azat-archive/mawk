@@ -12,6 +12,12 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log: Idefault.h,v $
+ * Revision 3.18.1.1  1993/01/15  03:33:52  mike
+ * patch3: safer double to int conversion
+ *
+ * Revision 3.18  1992/12/17  02:48:01  mike
+ * 1.1.2d changes for DOS
+ *
  * Revision 3.17  1992/11/26  15:35:52  mike
  * don't assume __STDC__ implies HAVE_STRERROR
  *
@@ -49,6 +55,37 @@ the GNU General Public License, version 2, 1991.
 #endif  
 #endif
 
+#ifdef	MSDOS
+
+#ifndef  HAVE_REARGV
+#define  HAVE_REARGV	0
+#endif
+
+#if HAVE_REARGV
+#define  SET_PROGNAME()  reargv(&argc,&argv) ; progname = argv[0]
+#else
+#define  SET_PROGNAME()  progname = "mawk"
+#endif
+
+#define  MAX__INT	0x7fff
+
+#if  HAVE_SMALL_MEMORY==0
+#define  LM_DOS		1
+#else
+#define  LM_DOS		0
+#endif
+
+#define   SM_DOS	(!LM_DOS)
+
+#define HAVE_REAL_PIPES		0
+#define HAVE_FAKE_PIPES		1
+
+#else /* not defined MSDOS */
+#define   MSDOS		0
+#define   LM_DOS	0
+#define   SM_DOS	0
+
+#endif /* MSDOS */
 
 
 /* The most common configuration is defined here:
@@ -147,6 +184,14 @@ the GNU General Public License, version 2, 1991.
 #define  HAVE_STRERROR		0
 #endif
 
+#ifndef  SET_PROGNAME
+#define  SET_PROGNAME()		{ char *strrchr() , *p ;\
+                                  p = strrchr(argv[0],'/') ;\
+				  progname = p ? p+1 : argv[0] ; }
+#endif
+				  
+				  
+
 /*------------- machine ------------------------*/
 
 /* ints are 32bits, two complement */
@@ -155,10 +200,15 @@ the GNU General Public License, version 2, 1991.
 #define  INT_FMT	"%d"
 #endif
 
+#ifndef  MAX__LONG
+#define  MAX__LONG	0x7fffffff
+#endif
+
 #if  MAX__INT <= 0x7fff
 #define  SHORT_INTS
 #define  INT_FMT	"%ld"
 #endif
+
 
 /* default is IEEE754 and data space is not scarce */
 
@@ -212,49 +262,6 @@ the GNU General Public License, version 2, 1991.
 
 #define  STDC_MATHERR	((SW_FP_CHECK || FPE_TRAPS_ON) && HAVE_MATHERR==0)
 
-/*-------------------MSDOS---------------------------------*/
-
-#ifdef	MSDOS
-
-#ifndef  HAVE_REARGV
-#define  HAVE_REARGV	0
-#endif
-
-#undef   MAX__INT
-#define  MAX__INT	0x7fff
-
-#if  HAVE_SMALL_MEMORY==0
-#define  LM_DOS		1
-#else
-#define  LM_DOS		0
-#endif
-
-#define   SM_DOS	(!LM_DOS)
-
-#undef  HAVE_REAL_PIPES
-#define HAVE_REAL_PIPES		0
-#undef  HAVE_FAKE_PIPES
-#define HAVE_FAKE_PIPES		1
-
-#if  SM_DOS 
-#ifdef  NO_BINMODE
-#undef  NO_BINMODE
-#define NO_BINMODE	1   /* hopefully no one needs this */
-#else
-#define NO_BINMODE	0
-#endif
-#else 
-#define NO_BINMODE	0
-#endif /* SM_DOS */
-
-#else /* not defined MSDOS */
-#define   MSDOS		0
-#define   LM_DOS	0
-#define   SM_DOS	0
-
-#endif /* MSDOS */
-
-/*----------------------------------------------------------*/
 
 
 #if  HAVE_PROTOS

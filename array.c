@@ -11,6 +11,14 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log: array.c,v $
+ * Revision 5.3.1.1  1993/01/20  12:24:25  mike
+ * patch3: safer double to int conversions
+ *
+ * Revision 5.3  1992/11/28  23:48:42  mike
+ * For internal conversion numeric->string, when testing
+ * if integer, use longs instead of ints so 16 and 32 bit
+ * systems behave the same
+ *
  * Revision 5.2  1992/04/07  17:17:31  brennan
  * patch 2
  * n = split(s,A,r)
@@ -33,7 +41,7 @@ the GNU General Public License, version 2, 1991.
 #define   NO_IVAL       (-1)
 
 static ANODE *PROTO(find_by_sval, (ARRAY, STRING *, int) ) ;
-static ANODE *PROTO(find_by_index, (ARRAY, int,int,int) ) ;
+static ANODE *PROTO(find_by_index, (ARRAY, int,long,int) ) ;
 static ANODE *PROTO(find_by_dval, (ARRAY, double, int)) ;
 static void PROTO(load_array_ov, (ARRAY) ) ;
 static void PROTO(ilist_delete, (ARRAY, ANODE*)) ;
@@ -97,9 +105,16 @@ not_there :
 }
 
 
+/* find an array by (long) integer ival.
+   Caller has already computed the hash value index.
+   (This allows fast insertion for split())
+*/
+
 static ANODE  *find_by_index(A, index, ival, flag)
   ARRAY  A ;
-  int index, ival, flag ;
+  int index; 
+  long ival; 
+  int flag ;
 {
   register ANODE *p = A[index].ilink ;
   ANODE *q = 0 ; /* trails p */
@@ -115,10 +130,11 @@ static ANODE  *find_by_index(A, index, ival, flag)
 
    /* not there, still need to look by sval */
    
-   { char xbuff[16] ;
+   { /* convert to string */
+     char xbuff[16] ;
      STRING *sval ;
      char *s = xbuff+14 ;
-     int x = ival ;
+     long x = ival ;
 
      xbuff[15] = 0 ;
 
@@ -142,19 +158,24 @@ found : /* put p at front */
 static ANODE *find_by_dval(A, d, flag)
   ARRAY A ;
   double d ;
+  int flag ;
 {
-  int ival ;
+  long lval ;
   ANODE *p ;
   char xbuff[260] ;
   STRING *sval ;
   
 
-  if ( (double)(ival = (int)d) == d ) /* integer valued */
+  lval = d_to_l(d) ;
+  if ( (double)lval == d ) /* integer valued */
   {
-    if ( ival >= 0 )  
-            return  find_by_index(A, ival%A_HASH_PRIME, ival, flag) ;
-    
-    (void) sprintf(xbuff, "%d", ival) ;
+    if ( lval >= 0 )  
+    {
+            return 
+	    find_by_index(A, (int)(lval%A_HASH_PRIME), lval, flag) ;
+    }
+    else
+    (void) sprintf(xbuff, INT_FMT, lval) ;
   } 
   else (void) sprintf(xbuff, string(CONVFMT)->str, d) ;
 
@@ -201,8 +222,9 @@ void  array_delete(A, cp)
   {
     case C_DOUBLE :
         ap = find_by_dval(A, cp->dval, NO_CREATE) ;
+	/* cut the ilink */
         if ( ap && ap->ival >= 0 ) /* must be at front */
-                A[ap->ival%A_HASH_PRIME].ilink = ap->ilink ;
+                A[(int)(ap->ival%A_HASH_PRIME)].ilink = ap->ilink ;
         break ;
 
     case  C_NOINIT :
@@ -215,6 +237,9 @@ void  array_delete(A, cp)
         break ;
   }
 
+  
+  /* delete -- leave the empty ANODE so for(i in A)
+     works */
   if ( ap )
   { free_STRING(ap->sval) ; ap->sval = (STRING *) 0 ;
     cell_destroy(ap->cp)  ; zfree(ap->cp, sizeof(CELL)) ;
@@ -241,7 +266,7 @@ static void  load_array_ov(A)
 
   while( 1 )
   {
-    cp = find_by_index(A, index, cnt, NO_MOVE) ->cp ;
+    cp = find_by_index(A, index, (long)cnt, NO_MOVE) ->cp ;
     cell_destroy(cp) ;
     cp->type = C_MBSTRN ;
     cp->ptr = (PTR) p->sval ;
@@ -315,7 +340,7 @@ void  load_array( A, cnt)
 
   while ( cnt )
   {
-    cp = find_by_index(A, index, cnt, NO_MOVE) ->cp  ;
+    cp = find_by_index(A, index, (long) cnt, NO_MOVE) ->cp  ;
     cell_destroy(cp) ;
     cp->type = C_MBSTRN ;
     cp->ptr = (PTR) split_buff[--cnt] ;
@@ -440,4 +465,3 @@ int  inc_aloop_state( ap )
     p = p->link ;
   }
 }
-

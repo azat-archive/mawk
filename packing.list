@@ -1,8 +1,8 @@
 
-#$Id: packing.list,v 1.29 1992/11/26 20:13:58 mike Exp $
+#$Id: packing.list,v 1.32 1993/02/06 02:12:51 mike Exp $
 
 ################################################
-# These files form the mawk distribution 1.1.2c
+# These files form the mawk distribution 1.1.2d
 #
 # Mawk is an implementation of the AWK Programming Language as
 # defined and described in Aho, Kernighan and Weinberger, The
@@ -76,7 +76,7 @@ zmalloc.c
 zmalloc.h
 ########################
 # directory:  man
-man/mawk.1		troff input for unix style man pages
+man/mawk.1		troff source for unix style man pages
 man/mawk.doc		ascii man pages
 ########################
 # directory:  rexp
@@ -117,6 +117,9 @@ config/apollo.h
 config/convex.h
 config/aix.h
 config/coherent.h
+config/linux.h
+config/386bsd.h
+config/ztc_dos.h
 #######################
 # directory:  test      testing and benchmarking directory
 test/mawktest           scripts to test mawk compiled OK
@@ -157,11 +160,24 @@ msdos/dosexec.c			system() and pipes() for DOS
 msdos/xdosexec.asm		execute programs small model	
 msdos/xdosexec.see		hex dump of xdosexec.obj
 msdos/see2obj.c			recovers xdosexec.obj 
-msdos/reargv.c			example (works with PolyShell)
-msdos/Makefile.tcc		for TCC and Borland make
+msdos/argvpoly.c		for polyshell
+msdos/argvmks.c			for MKS Korn Shell
+msdos/Makefile.tcc		for [TB]CC and Borland make
 msdos/Makefile.MSC		nmake and MSC 6.0A
+msdos/makefile.ztc	        
 msdos/mawkmsc.lnk
 msdos/bmawkmsc.lnk
+#####################
+# directory msdos/examples	awk programs for msdos
+msdos/examples/add_cr.awk
+msdos/examples/doslist.awk
+msdos/examples/objstat.awk
+msdos/examples/shell.awk
+msdos/examples/srcstat.awk
+msdos/examples/srcstat2.awk
+msdos/examples/texttest.awk
+msdos/examples/winexe.awk
+msdos/examples/winobj.awk
 #####################
 # directory macintosh
 macintosh/NOTES

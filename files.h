@@ -11,6 +11,9 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: files.h,v $
+ * Revision 5.2  1992/12/17  02:48:01  mike
+ * 1.1.2d changes for DOS
+ *
  * Revision 5.1  1991/12/05  07:59:18  brennan
  * 1.1 pre-release
  *
@@ -37,13 +40,14 @@ void  PROTO( close_out_pipes, (void) ) ;
 #if  HAVE_FAKE_PIPES
 void PROTO(close_fake_pipes, (void)) ;
 int  PROTO(close_fake_outpipe, (char *,int)) ;
-char *PROTO(tmp_file_name, (int)) ;
+char *PROTO(tmp_file_name, (int, char*)) ;
 #endif
 
 #if MSDOS
 int  PROTO(DOSexec, (char *)) ;
 int  PROTO(binmode, (void)) ;
 void PROTO(set_binmode, (int)) ;
+void PROTO(enlarge_output_buffer, (FILE*)) ;
 #endif
 
 

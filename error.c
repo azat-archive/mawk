@@ -12,6 +12,9 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log: error.c,v $
+ * Revision 5.3  1993/01/22  14:55:46  mike
+ * trivial change for unexpected_char()
+ *
  * Revision 5.2  1992/10/02  23:26:04  mike
  * using vargs.h
  *
@@ -283,7 +286,7 @@ static void unexpected_char()
 { int c = yylval.ival ;
 
   fprintf(stderr, "%s: %u: ", progname, token_lineno) ;
-  if ( c > ' ')
+  if ( c > ' ' && c < 127 )
       fprintf(stderr, "unexpected character '%c'\n" , c) ;
   else
       fprintf(stderr, "unexpected character 0x%02x\n" , c) ;

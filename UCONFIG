@@ -27,7 +27,6 @@ sysVr4i386			gcc rcc
 xenix_r2
 stardentVr3
 
-apolloSR10.3
 dynix
 mips
 next				cc is gcc
@@ -35,6 +34,9 @@ sgi
 aix
 convex
 coherent
+
+386bsd
+linux
 
 atarist				cross compile with gcc
 
@@ -47,6 +49,11 @@ To make mawk on one of these systems, run
 
 V7:  This port is the work of Carl Mascott.  You'll need to read
 his notes and use the .v7 Makefiles
+
+
+Apollo SR10.3: This used to work, but they changed compilers and
+mawk will no longer compile because  p++->f does not compile
+correctly.  The offending compiler is CC6.8.
 
 
 NOTES:

@@ -12,6 +12,9 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log: init.c,v $
+ * Revision 5.4  1992/12/24  01:58:19  mike
+ * 1.1.2d changes for MsDOS
+ *
  * Revision 5.3  1992/07/10  16:17:10  brennan
  * MsDOS: remove NO_BINMODE macro
  *
@@ -37,6 +40,9 @@ the GNU General Public License, version 2, 1991.
 #include <console.h>
 #endif
 
+#if MSDOS
+#include <fcntl.h>
+#endif
 
 static void PROTO( process_cmdline , (int, char **) ) ;
 static void PROTO( set_ARGV, (int, char **, int)) ;
@@ -45,17 +51,20 @@ static void PROTO( bad_option, (char *)) ;
 extern  void PROTO( print_version, (void) ) ;
 extern  int  PROTO( is_cmdline_assign, (char*)) ;
 
-#if 0
-#if  MSDOS  &&  ! HAVE_REARGV
-#include <fcntl.h>
-static  void  PROTO(emit_prompt, (void) ) ;
+#if  MSDOS
+void PROTO(stdout_init,(void)) ;
+#if  HAVE_REARGV
+void PROTO(reargv, (int*,char***)) ;
 #endif
 #endif
 
+char *progname ;
 
 void initialize(argc, argv)
   int argc ; char **argv ;
 {
+  SET_PROGNAME() ;
+
   bi_vars_init() ; /* load the builtin variables */
   bi_funct_init() ; /* load the builtin functions */
   kw_init() ; /* load the keywords */
@@ -80,6 +89,10 @@ void initialize(argc, argv)
   code_init() ;
   fpe_init() ;
   set_stderr() ;
+
+#if  MSDOS
+  stdout_init() ;
+#endif
 }
 
 void  compile_cleanup()

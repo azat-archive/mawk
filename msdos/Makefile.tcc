@@ -2,12 +2,22 @@
 #  this is a makefile for mawk under DOS
 #  with Borland make
 #
-#   make    --  mawk.exe   DOS command line
-#   make  -DLARGE   -- bmawk.exe   DOS  command line
-#   make  -DREARGV  --  mawk.exe   unix command line
-#   make  -DLARGE -DREARGV  -- bmawk.exe   unix  command line
+#   make    --  mawk.exe
+#   make  -DLARGE   -- bmawk.exe
+
+#  for a unix style command line add
+#  -DREARV=your_reargv_file without the extension
+#
+#  e.g. -DREARGV=argvmks
 
 #$Log: Makefile.tcc,v $
+#Revision 1.4  1993/01/14  13:07:48  mike
+#RM macro
+#
+#Revision 1.3  1992/12/27  01:44:11  mike
+#have to use -G- to fit small model
+#a bunch of small changes
+#
 #Revision 1.2  1991/11/12  09:59:26  brennan
 #changed tcc to $(CC) and .o to .obj
 #
@@ -18,18 +28,49 @@
 .SWAP
 
 # user settable
+# change here or override from command line e.g. -DCC=bcc
+
+!if ! $d(CC)
 CC=tcc   # bcc or ? 
-TCCLIB =c:\lib
-FLOATLIB=emu   #  or  fp87
-WILDCARD=c:\lib\wildargs.obj
+!endif
+
+!if ! $d(LIBDIR)
+LIBDIR =c:\lib    # where are your Borland C libraries ?
+!endif  
+
+!if !  $d(FLOATLIB)
+FLOATLIB=emu   #  or  fp87 if you have fp87 hardware
+!endif
+
+!if ! $d(WILDCARD)
+WILDCARD=$(LIBDIR)\wildargs.obj
+!endif
 
 # compiler flags
 # -G optimize for speed
 # -d merge duplicate strings
 # -v- symbolic debugging off
 # -O  optimize
-CFLAGS = -c -d -v- -O -G
+CFLAGS = -c -d -v- -O 
+
+!if $d(LARGE)
+OPT = -G
+!else
+OPT = -G-  # opt for size (getting too big)
+!endif
+
+
 LFLAGS = /c  #case sensitive linking
+
+# how to delete a file
+!if ! $d(RM)
+RM = del    # rm
+!endif
+
+# how to rename a file
+!if ! $d(RENAME)
+RENAME = rename  # mv
+!endif
 
 ##############################
 # end of user settable
@@ -44,7 +85,7 @@ TARGET=bmawk
 CFLAGS=$(CFLAGS) -DHAVE_SMALL_MEMORY=0
 !endif
 
-CFLAGS=-m$(MODEL) $(CFLAGS)
+CFLAGS=-m$(MODEL) $(OPT) $(CFLAGS)
 
 
 !if  $d(REARGV)
@@ -81,7 +122,7 @@ version.obj  \
 dosexec.obj
 
 !if  $d(REARGV)  
-OBS = $(OBS) reargv.obj
+OBS = $(OBS) $(REARGV).obj
 !endif
 
 !if  ! $d(LARGE)
@@ -94,12 +135,12 @@ rexp1.obj \
 rexp2.obj \
 rexp3.obj
 
-LIBS = $(TCCLIB)\$(FLOATLIB) \
-$(TCCLIB)\math$(MODEL) $(TCCLIB)\c$(MODEL)
+LIBS = $(LIBDIR)\$(FLOATLIB) \
+$(LIBDIR)\math$(MODEL) $(LIBDIR)\c$(MODEL)
 
 $(TARGET).exe : $(OBS)  $(REXP_OBS)
 	tlink $(LFLAGS) @&&!
-	$(TCCLIB)\c0$(MODEL) $(WILDCARD) $(OBS) $(REXP_OBS)
+	$(LIBDIR)\c0$(MODEL) $(WILDCARD) $(OBS) $(REXP_OBS)
 	$(TARGET),$(TARGET)
 	$(LIBS)
 !
@@ -111,13 +152,13 @@ $(TARGET).exe : $(OBS)  $(REXP_OBS)
 scancode.c :  makescan.c  scan.h
 	$(CC) makescan.c
 	makescan.exe > scancode.c
-	del makescan.obj  
-	del makescan.exe
+	$(RM) makescan.obj  
+	$(RM) makescan.exe
 
 xdosexec.obj  :  msdos\xdosexec.see
 	$(CC) msdos\see2obj.c
 	see2obj < msdos\xdosexec.see > xdosexec.obj
-	del see2obj.exe
+	$(RM) see2obj.exe
 
 #xdosexec.obj  :  xdosexec.asm
 #	masm /mx /z xdosexec ;
@@ -131,13 +172,13 @@ xdosexec.obj  :  msdos\xdosexec.see
 # parse.c : parse.y parse2.xc
 #	bison -dy parse.y
 #	bmawk -f modbison.awk y_tab.c parse2.xc > parse.c
-#	rename y_tab.h parse.h
-#	del y_tab.c
+#	$(RENAME) y_tab.h parse.h
+#	$(RM) y_tab.c
 ########################################
 
 
 clean  :
-	del  *.obj
+	$(RM)  *.obj
 
 
 RFLAGS=-Irexp -DMAWK

@@ -19,12 +19,16 @@ the GNU General Public License, version 2, 1991.
 #define   HAVE_PROTOS           1
 #define   HAVE_STDARG_H         1
 #define   HAVE_STDLIB_H		1
+#define   HAVE_TIME_H		1
+#define   HAVE_STRERROR		1
 
 #define   HAVE_MATHERR		0
 #define   FPE_TRAPS_ON		1
 #define   NOINFO_SIGFPE		1
 
 #define   SIZE_T(x)		(size_t)(x)
+
+#define   SET_PROGNAME()  progname = "MacMAWK"
 
 #include ":config:Idefault.h"
 

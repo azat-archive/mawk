@@ -126,4 +126,14 @@ echo test 3 failed
 del temp$$
 
 :done
+set ret1=
+set ret2=
+set ret3=
+set same=
+if %exception% == 1 goto :done1
+set exception=
+exit 0
+:done1
+set exception=
+exit 1
 exit %exception%

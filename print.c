@@ -11,6 +11,16 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log: print.c,v $
+ * Revision 5.4.1.2  1993/01/20  12:53:11  mike
+ * d_to_l()
+ *
+ * Revision 5.4.1.1  1993/01/15  03:33:47  mike
+ * patch3: safer double to int conversion
+ *
+ * Revision 5.4  1992/11/29  18:03:11  mike
+ * when printing integers, convert doubles to
+ * longs so output is the same on 16bit systems as 32bit systems
+ *
  * Revision 5.3  1992/08/17  14:23:21  brennan
  * patch2: After parsing, only bi_sprintf() uses string_buff.
  *
@@ -47,7 +57,8 @@ char *sprintf_limit = string_buff + SPRINTF_SZ ;
 static void print_cell(p, fp)
   register CELL *p ;
   register FILE *fp ;
-{ register int len ;
+{ 
+  int len ;
   
   switch( p->type )
   {
@@ -68,10 +79,15 @@ static void print_cell(p, fp)
         break ;
 
     case C_DOUBLE :
-	if ( (double)(len = (int) p->dval) == p->dval )
-	    fprintf(fp, "%d", len) ;
-	else
-        fprintf(fp, string(OFMT)->str, p->dval) ;
+	{
+	  long ival = d_to_l(p->dval) ;
+
+	  /* integers print as "%[l]d" */ 
+	  if ( (double) ival == p->dval )
+	        fprintf(fp, INT_FMT, ival) ;
+	  else
+          fprintf(fp, string(OFMT)->str, p->dval) ;
+	}
         break ;
 
     default :
@@ -91,44 +107,56 @@ static void print_cell(p, fp)
 
 CELL *bi_print(sp)
   CELL *sp ; /* stack ptr passed in */
-{ register CELL *p ;
+{ 
+  register CELL *p ;
   register int k ;
   FILE *fp ;
 
-  if ( (k = sp->type) < 0 )
-  { if ( (--sp)->type < C_STRING ) cast1_to_s(sp) ;
+  k = sp->type ;
+  if ( k < 0 )
+  { 
+    /* k holds redirection */
+    if ( (--sp)->type < C_STRING ) cast1_to_s(sp) ;
     fp = (FILE *) file_find( string(sp), k ) ;
     free_STRING(string(sp)) ;
     k = (--sp)->type ;
+    /* k now has number of arguments */
   }
   else  fp = stdout ;
 
   if ( k )  
-  { p = sp - k ; /* clear k variables off the stack */
+  { 
+    p = sp - k ; /* clear k variables off the stack */
     sp = p - 1 ;
-    while ( k-- > 1 ) 
-    { print_cell(p,fp) ; print_cell(OFS,fp) ;
-      cell_destroy(p) ; p++ ; }
+    k-- ;
+
+    while ( k > 0 ) 
+    { 
+      print_cell(p,fp) ; print_cell(OFS,fp) ;
+      cell_destroy(p) ; 
+      p++ ; k-- ;
+    }
     
     print_cell(p, fp) ;  cell_destroy(p) ;
   }
   else  
-  { sp-- ;
-    print_cell( &field[0], fp )  ; }
+  { /* print $0 */
+    sp-- ;
+    print_cell( &field[0], fp )  ;
+  }
 
   print_cell(ORS , fp) ;
   return sp ;
 }
   
 /*---------- types and defs for doing printf and sprintf----*/
-#define  PF_C		0
-#define  PF_S		1
+#define  PF_C		0   /* %c */
+#define  PF_S		1   /* %s */
 #define  PF_D		2   /* int conversion */
-#define  PF_LD		3   /* long int */
-#define  PF_F		4   /* float conversion */
+#define  PF_F		3   /* float conversion */
 
 /* for switch on number of '*' and type */
-#define  AST(num,type)  (5*(num)+(type))
+#define  AST(num,type)  ((PF_F+1)*(num)+(type))
 
 /* some picky ANSI compilers go berserk without this */
 #if HAVE_PROTOS
@@ -165,12 +193,15 @@ static STRING *do_printf( fp, format, argcnt, cp)
   int l_flag , h_flag ;  /* seen %ld or %hd  */
   int ast_cnt ;
   int ast[2] ;
-  long lval ;
-  int ival ;  /* caters to MSDOS */
+  long lval ;  /* hold integer values */
   int num_conversion = 0 ; /* for error messages */
   char *who ; /*ditto*/
   int pf_type ;  /* conversion type */
   PRINTER printer ; /* pts at fprintf() or sprintf() */
+
+#ifdef   SHORT_INTS
+  char xbuff[256] ; /* splice in l qualifier here */
+#endif
 
   if ( fp == (FILE *) 0 ) /* doing sprintf */
   {
@@ -219,6 +250,7 @@ static STRING *do_printf( fp, format, argcnt, cp)
     }
        
 
+    /* *q == '%' */
     num_conversion++ ;
   
     if ( * ++q == '%' )   /* %% */
@@ -240,7 +272,7 @@ static STRING *do_printf( fp, format, argcnt, cp)
     if ( *q == '*' )
     { 
       if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
-      ast[ast_cnt++] = (int) cp++ ->dval ;
+      ast[ast_cnt++] = d_to_i(cp++ ->dval) ;
       argcnt-- ; q++ ;
     }
     else
@@ -252,7 +284,7 @@ static STRING *do_printf( fp, format, argcnt, cp)
       if ( *q == '*' )
       {
 	if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
-        ast[ast_cnt++] = (int) cp++ ->dval ;
+        ast[ast_cnt++] = d_to_i(cp++ ->dval) ;
         argcnt-- ; q++ ;
       }
       else
@@ -285,22 +317,22 @@ static STRING *do_printf( fp, format, argcnt, cp)
 	    switch( cp->type )
 	    {
 	      case C_NOINIT :
-		    ival = 0 ;
+		    lval = 0 ;
 		    break ;
 
 	      case C_STRNUM :
 	      case C_DOUBLE :
-		    ival = (int) cp->dval ;
+		    lval = (long) d_to_i(cp->dval) ;
 		    break ;
 
 	      case  C_STRING :
-		    ival = string(cp)->str[0] ;
+		    lval = string(cp)->str[0] ;
 		    break ;
 
 	      case  C_MBSTRN :
 		    check_strnum(cp) ;
-		    ival = cp->type == C_STRING ?
-			string(cp)->str[0] : (int) cp->dval ;
+		    lval = cp->type == C_STRING ?
+			string(cp)->str[0] : (long) d_to_i(cp->dval) ;
 		    break ;
 	      
 	      default :
@@ -317,10 +349,12 @@ static STRING *do_printf( fp, format, argcnt, cp)
       case 'i' :
       case 'u' :
             if ( cp->type != C_DOUBLE ) cast1_to_d(cp) ;
-            lval = (long) cp->dval ;
-	    if ( h_flag ) lval &= 0xffff ;
+	    if ( cp->dval > MAX__LONG ) lval = MAX__LONG ;
+	    else
+	    if ( cp->dval > -MAX__LONG ) lval = (long) cp->dval ;
+	    else lval = -MAX__LONG ;
 
-            pf_type = l_flag ? PF_LD : PF_D ;
+            pf_type = PF_D ;
             break ;
     
       case 'e' :
@@ -340,19 +374,48 @@ static STRING *do_printf( fp, format, argcnt, cp)
     save = *q ;
     *q = 0 ;
 
+#ifdef  SHORT_INTS
+    if ( pf_type == PF_D )
+    {
+      /* need to splice in long modifier */
+      strcpy(xbuff, p) ;
+
+      if ( l_flag ) /* do nothing */ ;
+      else
+      {
+	int k = q - p ;
+
+	if ( h_flag )
+	{
+	  lval = (short) lval ;
+	  /* replace the 'h' with 'l' (really!) */
+	  xbuff[k-2] = 'l' ;
+	  if ( xbuff[k-1] != 'd' && xbuff[k-1] != 'i' ) lval &= 0xffff ;
+	}
+	else
+	{
+	  /* the usual case */
+	  xbuff[k] = xbuff[k-1] ;
+	  xbuff[k-1] = 'l' ;
+	  xbuff[k+1] = 0 ;
+	}
+      }
+    }
+#endif
+
     /* ready to call printf() */
     switch( AST(ast_cnt, pf_type ) )
     {
       case AST(0, PF_C )  :
-            (*printer)((PTR) target, p, ival) ;
+            (*printer)((PTR) target, p, (int) lval) ;
             break ;
 
       case AST(1, PF_C ) :
-            (*printer)((PTR) target, p, ast[0], ival) ;
+            (*printer)((PTR) target, p, ast[0], (int) lval) ;
             break ;
 
       case AST(2, PF_C ) :
-            (*printer)((PTR) target, p, ast[0], ast[1], ival) ;
+            (*printer)((PTR) target, p, ast[0], ast[1], (int)lval) ;
             break ;
 
       case AST(0, PF_S) :
@@ -364,32 +427,28 @@ static STRING *do_printf( fp, format, argcnt, cp)
             break ;
 
       case AST(2, PF_S) :
-            (*printer)((PTR) target, p, ast[0], ast[1], string(cp)->str) ;
+            (*printer)((PTR) target,p,ast[0],ast[1],string(cp)->str) ;
             break ;
 
+#ifdef  SHORT_INTS
+#define	FMT	xbuff     /* format in xbuff */
+#else
+#define FMT     p         /* p -> format */
+#endif
       case AST(0, PF_D) :
-            (*printer)((PTR) target, p, (int) lval) ;
+            (*printer)((PTR) target, FMT, lval) ;
             break ;
 
       case AST(1, PF_D) :
-            (*printer)((PTR) target, p, ast[0], (int) lval) ;
+            (*printer)((PTR) target, FMT, ast[0], lval) ;
             break ;
 
       case AST(2, PF_D) :
-            (*printer)((PTR) target, p, ast[0], ast[1], (int) lval) ;
+            (*printer)((PTR) target, FMT, ast[0], ast[1], lval) ;
             break ;
 
-      case AST(0, PF_LD) :
-            (*printer)((PTR) target, p,  lval) ;
-            break ;
+#undef  FMT
 
-      case AST(1, PF_LD) :
-            (*printer)((PTR) target, p, ast[0],  lval) ;
-            break ;
-
-      case AST(2, PF_LD) :
-            (*printer)((PTR) target, p, ast[0], ast[1],  lval) ;
-            break ;
 
       case AST(0, PF_F) :
             (*printer)((PTR) target, p,  cp->dval) ;
@@ -414,20 +473,27 @@ CELL *bi_printf(sp)
   register CELL *p ;
   FILE *fp ;
 
-  if ( (k = sp->type) < 0 )
-  { if ( (--sp)->type < C_STRING ) cast1_to_s(sp) ;
+  k = sp->type ;
+  if ( k  < 0 )
+  { 
+    /* k has redirection */
+    if ( (--sp)->type < C_STRING ) cast1_to_s(sp) ;
     fp = (FILE *) file_find( string(sp), k ) ;
     free_STRING(string(sp)) ;
     k = (--sp)->type ;
+    /* k is now number of args including format */
   }
   else  fp = stdout ;
 
-  sp -= k-- ; /* sp points at the format string */
+  sp -= k ; /* sp points at the format string */
+  k-- ;
+
   if ( sp->type < C_STRING )  cast1_to_s(sp) ;
   do_printf(fp, string(sp)->str, k, sp+1) ;
-
   free_STRING(string(sp)) ;
-  for ( p = sp+1 ; k-- ; p++ )  cell_destroy(p) ;
+
+  /* cleanup arguments on eval stack */
+  for ( p = sp+1 ; k ; k--, p++ )  cell_destroy(p) ;
   return --sp ;
 }
 
@@ -437,14 +503,16 @@ CELL *bi_sprintf(sp)
   int argcnt = sp->type ;
   STRING *sval ;
 
-  sp -= argcnt-- ; /* sp points at the format string */
-  if ( sp->type != C_STRING )  cast1_to_s(sp) ;
+  sp -= argcnt ; /* sp points at the format string */
+  argcnt-- ;
 
+  if ( sp->type != C_STRING )  cast1_to_s(sp) ;
   sval = do_printf((FILE *)0, string(sp)->str, argcnt, sp+1) ;
   free_STRING(string(sp)) ;
   sp->ptr = (PTR) sval ;
 
-  for ( p = sp+1 ; argcnt-- ; p++ )  cell_destroy(p) ;
+  /* cleanup */
+  for (p = sp+1 ; argcnt ; argcnt--, p++ )  cell_destroy(p) ;
 
   return sp ;
 }

@@ -1,6 +1,6 @@
 
-/*  reargv.c
-    --  set arguments via POLYSHELL
+/*  argvpoly.c
+    --  set arguments via POLYSHELL (now Thompson Shell??)
     --  no errors, don't change anything if
     --  it seems shell is not activated   */
 
@@ -48,8 +48,7 @@ void  reargv(int *argcp , char ***argvp)
 
   if ( _osmajor == 2 )  /* ugh */
      (*argvp)[0] = progname ;
-  else { (*argvp)[0] = basename( (*argvp)[0] ) ;
-	 progname = (*argvp)[0] ; }
+  else  (*argvp)[0] = basename( (*argvp)[0] ) ;
 
   if ( ! (cmdline = getenv("CMDLINE")) )  return ;
 
@@ -78,5 +77,4 @@ void  reargv(int *argcp , char ***argvp)
 	and sh earlier  */
   /* running under PolyShell  */
   *argcp = cntx ;  *argvp = v ;
-  progname = v[0] ;
 }

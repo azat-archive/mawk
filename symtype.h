@@ -11,6 +11,9 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: symtype.h,v $
+ * Revision 5.3  1992/12/17  02:48:01  mike
+ * 1.1.2d changes for DOS
+ *
  * Revision 5.2  1992/07/08  15:44:44  brennan
  * patch2: length returns.  I am a wimp
  *
@@ -43,7 +46,7 @@ unsigned char min_args, max_args ;
 typedef  struct anode {
 struct anode *link , *ilink ;
 STRING *sval ;
-int     ival ;
+long     ival ;
 CELL   *cp ;
 }  ANODE ;
 

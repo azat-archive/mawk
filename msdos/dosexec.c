@@ -11,6 +11,11 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: dosexec.c,v $
+ * Revision 1.4  1992/12/05  22:29:43  mike
+ * dos patch 112d:
+ * don't use string_buff
+ * check COMSPEC
+ *
  * Revision 1.3  1992/07/10  16:21:57  brennan
  * store exit code of input pipes
  *
@@ -42,16 +47,29 @@ static void get_shell()
 { char *s , *p ;
   int len ;
 
-  if ( !(s = getenv("MAWKSHELL")) )
+  if ( s = getenv("MAWKSHELL") )
   {
-    errmsg(0, "MAWKSHELL not set in environment") ; exit(1) ;
+    /* break into shell part and option part */
+    p = s ;
+    while ( *p != ' ' && *p != '\t' ) p++ ;
+    len = p - s ;
+    shell = (char *) zmalloc(len+1) ;
+    memcpy(shell, s, len) ; shell[len] = 0 ;
+    command_opt = p ;
   }
-  p = s ;
-  while ( *p != ' ' && *p != '\t' ) p++ ;
-  len = p - s ;
-  shell = (char *) zmalloc( len + 1 ) ;
-  (void) memcpy(shell, s, len) ;  shell[len] = 0 ;
-  command_opt = p ;
+  else
+  if ( s = getenv("COMSPEC") )
+  {
+    shell = s ;
+    command_opt = " /c" ;
+	/* leading space needed because of bug in command.com */
+  }
+  else
+  {
+    errmsg(0,
+    "cannot exec(), must set MAWKSHELL or COMSPEC in environment" ) ;
+    exit(1) ;
+  }
 }
 
 
@@ -103,40 +121,58 @@ int DOSexec( command )
 
 static int next_tmp ;  /* index for naming temp files */
 static char *tmpdir ;  /* directory to hold temp files */
+static unsigned mawkid ; /* unique to this mawk process */
 
 
-/* put the name of a temp file in string buff */
-char *tmp_file_name( id )
+/* compute the unique temp file name associated with id */
+char *tmp_file_name(id, buffer )
   int id ;
+  char *buffer ;
 {
-  (void) sprintf(string_buff, "%sMAWK%04X.TMP", tmpdir, id) ;
-  return string_buff ;
+  if ( mawkid == 0 )
+  {
+    /* first time */
+    union {
+    void far *ptr ;
+    unsigned w[2] ;
+    } xptr ;
+
+    xptr.ptr = (void far*)&mawkid ;
+    mawkid = xptr.w[1] ;
+
+    tmpdir = getenv("MAWKTMPDIR") ;
+    if ( ! tmpdir || strlen(tmpdir) > 80 ) tmpdir = "" ;
+  }
+
+  (void) sprintf(buffer, "%sMAWK%04X.%03X",tmpdir, mawkid, id) ;
+  return buffer ;
 }
+
+/* open a pipe, returning a temp file identifier by
+   reference
+*/
 
 PTR  get_pipe( command, type, tmp_idp)
   char *command ;
   int type, *tmp_idp ;
 {
   PTR  retval ;
-  char *tmpfile ;
+  char xbuff[256] ;
+  char *tmpname ;
 
-  if ( ! tmpdir )
-  {
-    tmpdir = getenv("MAWKTMPDIR") ;
-    if ( ! tmpdir )  tmpdir = "" ;
-  }
 
   *tmp_idp = next_tmp ;
-  tmpfile = tmp_file_name(next_tmp) ;
+  tmpname = tmp_file_name(next_tmp, xbuff+163) ;
 
   if ( type == PIPE_OUT )  
-      retval = (PTR) fopen(tmpfile, (binmode()&2)? "wb":"w") ;
+  {
+    retval = (PTR) fopen(tmpname, (binmode()&2)? "wb":"w") ;
+  }
   else
-  { char xbuff[256] ;
-    
-    sprintf(xbuff, "%s > %s" , command, tmpfile) ;
+  { 
+    sprintf(xbuff, "%s > %s" , command, tmpname) ;
     tmp_idp[1] = DOSexec(xbuff) ;
-    retval = (PTR) FINopen(tmpfile, 0) ;
+    retval = (PTR) FINopen(tmpname, 0) ;
   }
 
   next_tmp++ ;
@@ -151,8 +187,8 @@ int close_fake_outpipe(command, tid)
   char *command ;
   int tid ; /* identifies the temp file */
 {
-  char *tmpname = tmp_file_name(tid) ;
   char xbuff[256] ;
+  char *tmpname = tmp_file_name(tid, xbuff+163) ;
   int retval ;
 
   sprintf(xbuff, "%s < %s", command, tmpname) ;

@@ -11,6 +11,9 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: fin.c,v $
+ * Revision 5.6  1992/12/17  02:48:01  mike
+ * 1.1.2d changes for DOS
+ *
  * Revision 5.5  1992/07/28  15:11:30  brennan
  * minor change in finding eol, needed for MsDOS
  *
@@ -283,6 +286,16 @@ static char *enlarge_fin_buffer(fin)
 {
   unsigned r ;
   unsigned oldsize = fin->nbuffs*BUFFSZ+1 ;
+
+#if  LM_DOS
+  /* I'm not sure this can really happen:
+     avoid "16bit wrap" */
+  if ( fin->nbuffs == MAX_BUFFS )
+  {
+    errmsg(0, "out of input buffer space") ;
+    mawk_exit(1) ;
+  }
+#endif
 
   fin->buffp = 
   fin->buff = (char *) zrealloc(fin->buff, oldsize, oldsize+BUFFSZ);

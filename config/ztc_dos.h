@@ -1,7 +1,7 @@
 
 /********************************************
-tcc_dos.h
-copyright 1991, Michael D. Brennan
+ztc_dos.h
+copyright 1992, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -10,24 +10,16 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/* Turbo C under MSDOS */
+/* Zortech C++ under MSDOS */
 
-/* $Log: tcc_dos.h,v $
- * Revision 4.3  1992/12/17  02:48:01  mike
- * 1.1.2d changes for DOS
+/* $Log: ztc_dos.h,v $
+ * Revision 1.1  1992/12/27  01:42:50  mike
+ * Initial revision
  *
- * Revision 4.2  1991/10/29  09:37:54  brennan
- * changes for 1.09
+ * Revision 4.2.1  92/06/01  00:00:00  bmyers
+ * create Zortech C++ version from Borland C++ version
+ * ZTC has matherr function and no info for floating point exceptions.
  *
- * Revision 4.1  91/09/25  11:41:51  brennan
- * VERSION 1.0
- * 
- * Revision 3.2  91/08/13  09:04:19  brennan
- * VERSION .9994
- * 
- * Revision 3.1  91/06/07  10:38:51  brennan
- * VERSION 0.995
- * 
 */
 
 #ifndef   CONFIG_H
@@ -39,16 +31,15 @@ the GNU General Public License, version 2, 1991.
 #define   HAVE_STDARG_H         1
 #define   HAVE_STDLIB_H		1
 #define   HAVE_TIME_H		1
+#define   HAVE_STRERROR		1
+
+#define   HAVE_MATHERR          0
 
 
-
-/* Turbo C float lib bungles comparison of NaNs  so we
-   have to keep traps on */
 
 
 #define  FPE_TRAPS_ON		1
-#define  FPE_ZERODIVIDE		131
-#define  FPE_OVERFLOW		132
+#define  NOINFO_SIGFPE          1
 
 
 #ifndef   HAVE_SMALL_MEMORY   /* allow large model override */

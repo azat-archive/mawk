@@ -13,6 +13,9 @@ the GNU General Public License, version 2, 1991.
 /* Microsoft C 6.0A under MSDOS */
 
 /*$Log: msc_dos.h,v $
+ * Revision 4.4  1992/12/17  02:48:01  mike
+ * 1.1.2d changes for DOS
+ *
  * Revision 4.3  1992/01/09  08:54:09  brennan
  * changed SAMESEG macro
  *
@@ -30,6 +33,8 @@ the GNU General Public License, version 2, 1991.
 #define   HAVE_PROTOS           1
 #define   HAVE_STDARG_H         1
 #define   HAVE_STDLIB_H		1
+#define   HAVE_TIME_H		1
+#define   HAVE_STRERROR		1
 
 #define   FPE_TRAPS_ON		1
 #define   NOINFO_SIGFPE		1

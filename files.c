@@ -11,6 +11,9 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: files.c,v $
+ * Revision 5.5  1992/12/17  02:48:01  mike
+ * 1.1.2d changes for DOS
+ *
  * Revision 5.4  1992/07/10  16:10:30  brennan
  * patch2
  * MsDOS: remove useless NO_BINMODE macro
@@ -76,24 +79,6 @@ PTR   ptr ;  /* FIN*   or  FILE*   */
 
 static FILE_NODE *file_list ;
 
-void set_stderr()
-{
-  file_list = ZMALLOC(FILE_NODE) ;
-  file_list->link = (FILE_NODE*) 0 ;
-  file_list->type = F_TRUNC ;
-  file_list->name = new_STRING("/dev/stderr") ;
-  file_list->ptr = (PTR) stderr ;
-}
-
-/* fopen() but no buffering to ttys */
-static FILE *tfopen(name, mode)
-  char *name, *mode ;
-{
-  FILE *retval = fopen(name,mode) ;
-
-  if ( retval && isatty(fileno(retval)) )  setbuf(retval, (char*)0) ;
-  return retval ;
-}
 
 /* find a file on file_list */
 PTR  file_find( sval, type )
@@ -237,8 +222,11 @@ int  file_close( sval )
                 retval = wait_for(p->pid) ;
 #endif
 #if  HAVE_FAKE_PIPES
-                (void) unlink(tmp_file_name(p->pid)) ;
+	      { 
+		char xbuff[100] ;
+                (void) unlink(tmp_file_name(p->pid,xbuff)) ;
 		retval = p->inpipe_exit ;
+	      }
 #endif
                 break ;
           }
@@ -275,13 +263,14 @@ void close_out_pipes()
 
 void  close_fake_pipes()
 { register FILE_NODE *p = file_list ;
+  char xbuff[100] ;
 
   /* close input pipes first to free descriptors for children */
   while ( p )
   {
     if ( p->type == PIPE_IN )
     { FINclose((FIN *) p->ptr) ;
-      (void) unlink(tmp_file_name(p->pid)) ; 
+      (void) unlink(tmp_file_name(p->pid,xbuff)) ; 
     }
     p = p->link ;
   }
@@ -297,8 +286,8 @@ void  close_fake_pipes()
     p = p->link ;
   }
 }
-#endif
-#endif
+#endif /* HAVE_FAKE_PIPES */
+#endif /* ! HAVE_REAL_PIPES */
 
 /* hardwire to /bin/sh for portability of programs */
 char *shell = "/bin/sh" ;
@@ -427,3 +416,53 @@ int wait_for(pid)
 }
         
 #endif  /* HAVE_REAL_PIPES */
+void set_stderr()
+{
+  file_list = ZMALLOC(FILE_NODE) ;
+  file_list->link = (FILE_NODE*) 0 ;
+  file_list->type = F_TRUNC ;
+  file_list->name = new_STRING("/dev/stderr") ;
+  file_list->ptr = (PTR) stderr ;
+}
+
+/* fopen() but no buffering to ttys */
+static FILE *tfopen(name, mode)
+  char *name, *mode ;
+{
+  FILE *retval = fopen(name,mode) ;
+
+  if ( retval )
+  {
+    if ( isatty(fileno(retval)) )  setbuf(retval, (char*)0) ;
+    else
+    {
+#if  LM_DOS
+       enlarge_output_buffer(retval) ;
+#endif
+    }
+  }
+  return retval ;
+}
+
+#if  LM_DOS
+void enlarge_output_buffer( fp )
+  FILE *fp ;
+{
+  if ( setvbuf(fp, (char*) 0, _IOFBF, BUFFSZ) < 0 )
+  {
+    errmsg(errno, "setvbuf failed on fileno %d", fileno(fp)) ;
+    mawk_exit(1) ;
+  }
+}
+#endif
+
+#if  MSDOS
+void
+stdout_init()
+{
+#if  LM_DOS
+   if ( ! isatty(1) )  enlarge_output_buffer(stdout) ;
+#endif
+   if ( binmode() & 2 ) { setmode(1,O_BINARY) ; setmode(2,O_BINARY) ; }
+}
+#endif /* MSDOS */
