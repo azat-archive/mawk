@@ -12,6 +12,12 @@
 
 /*
 $Log: argvmks.c,v $
+ * Revision 1.2  1995/01/07  14:47:24  mike
+ * remove return 1 from void function
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:49  mike
+ * move source to cvs
+ *
  * Revision 1.2  1992/12/17  02:48:01  mike
  * 1.1.2d changes for DOS
  *
@@ -60,7 +66,7 @@ void reargv ( int *argcp, char *** argvp ) {
 /* malloc space for array of char pointers */
 
     if ( ! ( v = ( char ** ) malloc (( i + 1 ) * sizeof ( char* ))) )
-        return 1;
+        return ;
 
 /* set argc to number of args in environ */
 

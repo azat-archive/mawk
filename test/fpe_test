@@ -3,6 +3,13 @@
 # tests if mawk has been compiled to correctly handle
 # floating point exceptions
 #
+# $Log: fpe_test,v $
+# Revision 1.3  1995/08/29  14:17:18  mike
+# exit 2 changes
+#
+# Revision 1.2  1994/12/18  18:51:55  mike
+# recognize NAN printed as ? for hpux
+#
 
 PATH=.:$PATH
 
@@ -38,7 +45,7 @@ cat temp$$
 echo
 
 
-# the returns should all be zero or all 1
+# the returns should all be zero or all 2
 # core dumps not allowed
 
 trap '
@@ -71,7 +78,8 @@ if [ $same = 1 ]
    if [ $ret1 = 0 ]
       then 
 	echo results consistent: ignoring floating exceptions
-	if  grep -i nan temp$$  > /dev/null
+	# some versions of hpux print NAN as ?
+	if  egrep '[nN][aA][nN]|\?' temp$$  > /dev/null
 	   then :
 	   else
 	     echo "but the library is not IEEE754 compatible"
@@ -88,7 +96,7 @@ if [ $same = 1 ]
    else
    echo results are not consistent
 echo 'return values should all be 0 if ignoring FPEs (e.g. with IEEE754)
-or all 1 if trapping FPEs'
+or all 2 if trapping FPEs'
 
 exit 1
 fi

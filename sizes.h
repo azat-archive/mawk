@@ -11,6 +11,31 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log: sizes.h,v $
+ * Revision 1.8  1995/10/14  22:09:51  mike
+ * getting MAX__INT from values.h didn't really work since the value was
+ * unusable in an #if MAX__INT <= 0x7fff
+ * at least it didn't work under sunos -- so use of values.h is a goner
+ *
+ * Revision 1.7  1995/06/18  19:17:51  mike
+ * Create a type Int which on most machines is an int, but on machines
+ * with 16bit ints, i.e., the PC is a long.  This fixes implicit assumption
+ * that int==long.
+ *
+ * Revision 1.6  1994/10/10  01:39:01  mike
+ * get MAX__INT from limits.h or values.h
+ *
+ * Revision 1.5  1994/10/08  19:15:53  mike
+ * remove SM_DOS
+ *
+ * Revision 1.4  1994/09/25  23:00:49  mike
+ * remove #if 0
+ *
+ * Revision 1.3  1993/07/15  23:56:15  mike
+ * general cleanup
+ *
+ * Revision 1.2  1993/07/04  12:52:13  mike
+ * start on autoconfig changes
+ *
  * Revision 5.3  1992/12/17  02:48:01  mike
  * 1.1.2d changes for DOS
  *
@@ -27,7 +52,23 @@ the GNU General Public License, version 2, 1991.
 #ifndef  SIZES_H
 #define  SIZES_H
 
-#if     ! HAVE_SMALL_MEMORY
+#ifndef  MAX__INT
+#include <limits.h>
+#define  MAX__INT  INT_MAX
+#define  MAX__LONG LONG_MAX
+#endif   /* MAX__INT */
+
+#if  MAX__INT <= 0x7fff
+#define  SHORT_INTS
+#define  INT_FMT "%ld"
+typedef  long Int ;
+#define  Max_Int MAX__LONG
+#else
+#define  INT_FMT "%d"
+typedef  int Int ;
+#define  Max_Int  MAX__INT
+#endif
+
 #define EVAL_STACK_SIZE  256  /* initial size , can grow */
 /* number of fields at startup, must be a power of 2 
    and FBANK_SZ-1 must be divisible by 3! */
@@ -35,14 +76,6 @@ the GNU General Public License, version 2, 1991.
 #define  FB_SHIFT	  8   /* lg(FBANK_SZ) */
 #define  NUM_FBANK	128   /* see MAX_FIELD below */
 
-#else  /* have to be frugal with memory */
-
-#define EVAL_STACK_SIZE   64
-#define  FBANK_SZ	64
-#define  FB_SHIFT	 6   /* lg(FBANK_SZ) */
-#define  NUM_FBANK	16   /* see MAX_FIELD below */
-
-#endif  
 
 #define  MAX_SPLIT	(FBANK_SZ-1)   /* needs to be divisble by 3*/
 #define  MAX_FIELD	(NUM_FBANK*FBANK_SZ - 1)
@@ -54,7 +87,7 @@ the GNU General Public License, version 2, 1991.
   /* starting buffer size for input files, grows if 
      necessary */
 
-#if      LM_DOS
+#ifdef  MSDOS
 /* trade some space for IO speed */
 #undef  BUFFSZ
 #define BUFFSZ		8192
@@ -63,24 +96,9 @@ the GNU General Public License, version 2, 1991.
 #endif
 
 #define  HASH_PRIME  53
-
-#if ! HAVE_SMALL_MEMORY
 #define  A_HASH_PRIME 199
-#else
-#define  A_HASH_PRIME  37
-#endif
 
 
 #define  MAX_COMPILE_ERRORS  5 /* quit if more than 4 errors */
-
-
-
-/* AWF showed the need for this */
-#define  MAIN_PAGE_SZ    4096 /* max instr in main block */
-#if 0
-#define  PAGE_SZ    1024  /* max instructions for other blocks */
-#endif 
-/* these used to be different */
-#define  PAGE_SZ    4096
 
 #endif   /* SIZES_H */

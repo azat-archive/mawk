@@ -11,6 +11,15 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: dosexec.c,v $
+ * Revision 1.3  1995/08/20  16:37:22  mike
+ * exit(1) -> exit(2)
+ *
+ * Revision 1.2  1994/10/08  18:50:03  mike
+ * remove SM_DOS
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:47  mike
+ * move source to cvs
+ *
  * Revision 1.4  1992/12/05  22:29:43  mike
  * dos patch 112d:
  * don't use string_buff
@@ -68,54 +77,23 @@ static void get_shell()
   {
     errmsg(0,
     "cannot exec(), must set MAWKSHELL or COMSPEC in environment" ) ;
-    exit(1) ;
+    exit(2) ;
   }
 }
 
 
-/* large model use spawnl() so we don't have to understand
-   far memory management
-
-   small model use assembler routine xDOSexec() to save code
-   space
-*/
-
 int DOSexec( command )
   char *command ;
 {
-#if  SM_DOS
-  extern int PROTO(xDOSexec, (char *, void*)) ;
-  struct {
-    int env_seg ;
-    char far *cmdline ;
-    unsigned fcb[4] ;
-  } block ;
-  int len ;
-#endif
-
   char xbuff[256] ;
 
   if ( ! shell )  get_shell() ;
 
-  (void) sprintf(xbuff+1, "%s %s", command_opt, command) ;
+  sprintf(xbuff, "%s %s", command_opt, command) ;
 
-#if  SM_DOS
-  block.env_seg = 0 ;
-  block.cmdline = xbuff ;
-  (void) memset(block.fcb, 0xff, sizeof(block.fcb)) ;
-  len = strlen(xbuff+1) ;
-  if ( len > 126 ) len = 126 ;
-  xbuff[0] = len ;
-  xbuff[len+1] = '\r' ;
-#endif
+  fflush(stderr) ; fflush(stdout) ;
 
-  (void) fflush(stderr) ; (void) fflush(stdout) ;
-
-#if SM_DOS
-  return xDOSexec(shell, &block) ;
-#else
-  return   spawnl(P_WAIT, shell, shell, xbuff+1, (char *) 0 ) ;
-#endif
+  return   spawnl(P_WAIT, shell, shell, xbuff, (char *) 0 ) ;
 }
 
 

@@ -11,7 +11,25 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log: jmp.c,v $
- * Revision 5.1  1991/12/05  07:56:10  brennan
+ * Revision 1.4  1995/06/18  19:42:19  mike
+ * Remove some redundant declarations and add some prototypes
+ *
+ * Revision 1.3  1995/04/21  14:20:16  mike
+ * move_level variable to fix bug in arglist patching of moved code.
+ *
+ * Revision 1.2  1993/07/14  13:17:49  mike
+ * rm SIZE_T and run thru indent
+ *
+ * Revision 1.1.1.1  1993/07/03	 18:58:15  mike
+ * move source to cvs
+ *
+ * Revision 5.3	 1993/01/09  19:03:44  mike
+ * code_pop checks if the resolve_list needs relocation
+ *
+ * Revision 5.2	 1993/01/07  02:50:33  mike
+ * relative vs absolute code
+ *
+ * Revision 5.1	 1991/12/05  07:56:10  brennan
  * 1.1 pre-release
  *
 */
@@ -25,188 +43,241 @@ the GNU General Public License, version 2, 1991.
 
 
 #include "mawk.h"
+#include "symtype.h"
 #include "jmp.h"
 #include "code.h"
 #include "sizes.h"
 #include "init.h"
 #include "memory.h"
 
-extern unsigned compile_error_count ;
 #define error_state  (compile_error_count>0)
 
 
 /*---------- back patching jumps  ---------------*/
 
-typedef  struct jmp {
-struct jmp *link ;
-INST *source ;
-} JMP ;
+typedef struct jmp
+{
+   struct jmp *link ;
+   int source_offset ;
+}
+JMP ;
 
 static JMP *jmp_top ;
 
-void code_jmp( jtype, target)
-  int jtype ; 
-  INST *target ;
-{ 
-  register INST *source ;
+void
+code_jmp(jtype, target)
+   int jtype ;
+   INST *target ;
+{
+   if (error_state)  return ;
 
-  if (error_state)  return ;
+   /* WARNING: Don't emit any code before using target or
+     relocation might make it invalid */
 
-  code1(jtype) ;
-  source = code_ptr++ ;
+   if (target)	code2op(jtype, target - (code_ptr + 1)) ;
+   else
+   {
+      register JMP *p = ZMALLOC(JMP) ;
 
-  if ( target ) source->op = target - source ;
-  else  /* save source on jump stack */
-  {
-    register JMP *p = (JMP*) zmalloc(sizeof(JMP)) ;
-    p->source = source ;
-    p->link = jmp_top ;
-    jmp_top = p ;
-  }
+      /* stack for back patch */
+      code2op(jtype, 0) ;
+      p->source_offset = code_offset - 1 ;
+      p->link = jmp_top ;
+      jmp_top = p ;
+   }
 }
 
-void patch_jmp(target)  /* patch a jump on the jmp_stack */
-  INST *target ;
-{ register JMP *p ;
+void
+patch_jmp(target)		/* patch a jump on the jmp_stack */
+   INST *target ;
+{
+   register JMP *p ;
+   register INST *source ;	 /* jmp starts here */
 
-  if ( ! error_state )
-  {
-#ifdef  DEBUG
-    if (!jmp_top) bozo("jmp stack underflow") ;
+   if (!error_state)
+   {
+#ifdef	DEBUG
+      if (!jmp_top)  bozo("jmp stack underflow") ;
 #endif
 
-    p = jmp_top ; jmp_top = p->link ;
+      p = jmp_top ; jmp_top = p->link ;
+      source = p->source_offset + code_base ;
+      source->op = target - source ;
 
-    p->source->op = target - p->source ;
-
-    zfree(p, sizeof(JMP)) ;
-  }
+      ZFREE(p) ;
+   }
 }
 
 
 /*-- break and continue -------*/
 
-typedef struct bc {
-struct bc *link ;  /* stack as linked list */
-int type ;         /* 'B' or 'C' or mark start with 0 */
-INST *source ;     /* position of _JMP  */
-} BC ;
+typedef struct bc
+{
+   struct bc *link ;		 /* stack as linked list */
+   int type ;			 /* 'B' or 'C' or mark start with 0 */
+   int source_offset ;		 /* position of _JMP  */
+}
+BC ;
 
-static BC *bc_top ;  
+static BC *bc_top ;
 
 
 
-void BC_new()  /* mark the start of a loop */
-{ 
-  BC_insert(0, (INST*) 0 ) ;  
+void
+BC_new()			/* mark the start of a loop */
+{
+   BC_insert(0, (INST *) 0) ;
 }
 
-void BC_insert(type, address)
-  int type ; INST *address ;
-{ register BC * p  ;
+void
+BC_insert(type, address)
+int type ; INST *address ;
+{
+   register BC *p ;
 
-  if ( error_state )  return ;
+   if (error_state)  return ;
 
-  if ( type && ! bc_top )
-  {
-    compile_error("%s statement outside of loop",
-      type == 'B' ? "break" : "continue" ) ;
-    
-    return ;
-  }
-  else
-  {
-    p = (BC*) zmalloc(sizeof(BC)) ;
-    p->type = type ;
-    p->source = address ;
-    p->link = bc_top ;
-    bc_top = p ;
-  }
+   if (type && !bc_top)
+   {
+      compile_error("%s statement outside of loop",
+		    type == 'B' ? "break" : "continue") ;
+
+      return ;
+   }
+   else
+   {
+      p = ZMALLOC(BC) ;
+      p->type = type ;
+      p->source_offset = address - code_base ;
+      p->link = bc_top ;
+      bc_top = p ;
+   }
 }
 
 
-void BC_clear(B_address, C_address)  
 /* patch all break and continues for one loop */
-INST *B_address, *C_address ;
-{ register  BC *p , *q ;
+void
+BC_clear(B_address, C_address)
+   INST *B_address, *C_address ;
+{
+   register BC *p, *q ;
+   INST *source ;
 
-  if (error_state) return ;
+   if (error_state)  return ;
 
-  p = bc_top ;
-  /* pop down to the mark node */
-  while ( p->type )
-  {
-    p->source->op = (p->type == 'B' ? B_address : C_address)
-		      - p->source ;
+   p = bc_top ;
+   /* pop down to the mark node */
+   while (p->type)
+   {
+      source = code_base + p->source_offset ;
+      source->op = (p->type == 'B' ? B_address : C_address)
+	 - source ;
 
-    q = p ; p = p->link ; zfree(q, sizeof(BC)) ;
-  }
-  /* remove the mark node */
-  bc_top = p->link ;
-  zfree(p, sizeof(BC)) ;
+      q = p ; p = p->link ; ZFREE(q) ;
+   }
+   /* remove the mark node */
+   bc_top = p->link ;
+   ZFREE(p) ;
 }
 
-/*-----  moving code --------------------------*/
+/*-----	 moving code --------------------------*/
 
-/* a stack to hold some pieces of code while 
+/* a stack to hold some pieces of code while
    reorganizing loops .
-   This used to be used on all loops.  Now it is used
-   only for the 3rd expression on a for loop and
-   for the fist part of a range pattern
 */
 
-typedef  struct mc {  /* mc -- move code */
-struct mc *link ;
-INST *code ;
-unsigned len ;
-}  MC ;
+typedef struct mc
+{				/* mc -- move code */
+   struct mc *link ;
+   INST *code ;			 /* the save code */
+   unsigned len ;		 /* its length */
+   int scope ;			 /* its scope */
+   int move_level ;              /* size of this stack when coded */
+   FBLOCK *fbp ;		 /* if scope FUNCT */
+   int offset ;			 /* distance from its code base */
+}
+MC ;
 
 static MC *mc_top ;
+int code_move_level = 0 ; /* see comment in jmp.h */
 
+#define	 NO_SCOPE	-1
+ /* means relocation of resolve list not needed */
 
-void code_push( code, len)
-  INST *code ; unsigned len ;
-{ 
-  register MC *p ;
+void
+code_push(code, len, scope, fbp)
+   INST *code ;
+   unsigned len ;
+   int scope ;
+   FBLOCK *fbp ;
+{
+   register MC *p ;
 
-  if (! error_state ) 
-  {
-    p = (MC*) zmalloc(sizeof(MC)) ;
-    p->len = len ;
-    p->link = mc_top ;
-    mc_top = p ;
+   if (!error_state)
+   {
+      p = ZMALLOC(MC) ;
+      p->len = len ;
+      p->link = mc_top ;
+      mc_top = p ;
 
-    if ( len )
-    {
-      p->code = (INST*) zmalloc(sizeof(INST)*len) ;
-      (void) memcpy(p->code, code, SIZE_T(sizeof(INST)*len)) ;
-    }
-  }
+      if (len)
+      {
+	 p->code = (INST *) zmalloc(sizeof(INST) * len) ;
+	 memcpy(p->code, code, sizeof(INST) * len) ;
+      }
+      if (!resolve_list)  p->scope = NO_SCOPE ;
+      else
+      {
+	 p->scope = scope ;
+	 p->move_level = code_move_level ;
+	 p->fbp = fbp ;
+	 p->offset = code - code_base ;
+      }
+   }
+   code_move_level++ ;
 }
 
 /* copy the code at the top of the mc stack to target.
    return the number of INSTs moved */
 
-unsigned code_pop(target) 
-  INST *target ;
-{ 
-  register MC *p ;
-  unsigned retval ;
+unsigned
+code_pop(target)
+   INST *target ;
+{
+   register MC *p ;
+   unsigned len ;
+   int target_offset ;
 
-  if (error_state)  return 0 ;
+   if (error_state)  return 0 ;
 
-#ifdef  DEBUG
-  if ( ! mc_top ) bozo("mc underflow") ;
+#ifdef	DEBUG
+   if (!mc_top)	 bozo("mc underflow") ;
 #endif
 
-  p = mc_top ; mc_top = p->link ;
-  
-  if ( retval = p->len )
-  {
-    (void) memcpy(target, p->code, SIZE_T(p->len*sizeof(INST))) ;
-    zfree(p->code, p->len*sizeof(INST)) ; 
-  }
+   p = mc_top ; mc_top = p->link ;
+   len = p->len ;
 
-  zfree(p, sizeof(MC)) ;
-  return retval ;
+   while (target + len >= code_warn)
+   {
+      target_offset = target - code_base ;
+      code_grow() ;
+      target = code_base + target_offset ;
+   }
+
+   if (len)
+   {
+      memcpy(target, p->code, len * sizeof(INST)) ;
+      zfree(p->code, len * sizeof(INST)) ;
+   }
+
+   if (p->scope != NO_SCOPE)
+   {
+      target_offset = target - code_base ;
+      relocate_resolve_list(p->scope, p->move_level, p->fbp,
+			 p->offset, len, target_offset - p->offset) ;
+   }
+
+   ZFREE(p) ;
+   code_move_level-- ;
+   return len ;
 }

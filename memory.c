@@ -1,7 +1,7 @@
 
 /********************************************
 memory.c
-copyright 1991, Michael D. Brennan
+copyright 1991, 1992  Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -12,7 +12,16 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log: memory.c,v $
- * Revision 5.1  1991/12/05  07:56:21  brennan
+ * Revision 1.2  1993/07/17  13:23:08  mike
+ * indent and general code cleanup
+ *
+ * Revision 1.1.1.1  1993/07/03	 18:58:17  mike
+ * move source to cvs
+ *
+ * Revision 5.2	 1993/01/01  21:30:48  mike
+ * split new_STRING() into new_STRING and new_STRING0
+ *
+ * Revision 5.1	 1991/12/05  07:56:21  brennan
  * 1.1 pre-release
  *
 */
@@ -21,51 +30,72 @@ the GNU General Public License, version 2, 1991.
 /* memory.c */
 
 #include "mawk.h"
-
-#if     HAVE_PROTOS
-#define SUPPRESS_NEW_STRING_PROTO  /* get compiler off our back on
-         the definition of new_STRING() */
-#endif
-
 #include "memory.h"
 
-STRING null_str = {0, 1, "" } ;
+static STRING *PROTO(xnew_STRING, (unsigned)) ;
 
-  
-STRING *new_STRING(s, xlen)   
-  char *s ;  unsigned xlen ;
-  /* WARNING: if s != NULL, don't access xlen
-     because it won't be there   */
-{ register STRING *sval ;
-  unsigned len ;
 
-  if ( s )
-  {
-    if ( *s == 0 ){ sval = &null_str ; null_str.ref_cnt++ ; }
-    else
-    {
-      len = strlen(s) ;
-      sval = (STRING *) zmalloc(len + STRING_OH) ;
-      sval->len = len ;
-      sval->ref_cnt = 1 ;
-      (void) strcpy(sval->str, s) ;
-    }
-  }
-  else  
-  { sval = (STRING *) zmalloc( xlen + STRING_OH ) ;
-    sval->ref_cnt = 1 ; sval->len = xlen ;
-    /* zero out the end marker */
-    sval->str[xlen] = 0 ; 
-  }
+STRING null_str =
+{0, 1, ""} ;
 
-  return sval ;
+static STRING *
+xnew_STRING(len)
+   unsigned len ;
+{
+   STRING *sval = (STRING *) zmalloc(len + STRING_OH) ;
+
+   sval->len = len ;
+   sval->ref_cnt = 1 ;
+   return sval ;
+}
+
+/* allocate space for a STRING */
+
+STRING *
+new_STRING0(len)
+   unsigned len ;
+{
+   if (len == 0)
+   {
+      null_str.ref_cnt++ ;
+      return &null_str ;
+   }
+   else
+   {
+      STRING *sval = xnew_STRING(len) ;
+      sval->str[len] = 0 ;
+      return sval ;
+   }
+}
+
+/* convert char* to STRING* */
+
+STRING *
+new_STRING(s)
+   char *s ;
+{
+
+   if (s[0] == 0)
+   {
+      null_str.ref_cnt++ ;
+      return &null_str ;
+   }
+   else
+   {
+      STRING *sval = xnew_STRING(strlen(s)) ;
+      strcpy(sval->str, s) ;
+      return sval ;
+   }
 }
 
 
-#ifdef   DEBUG
+#ifdef	 DEBUG
 
-void  DB_free_STRING(sval)
-  register STRING *sval ;
-{ if ( -- sval->ref_cnt == 0 )  zfree(sval, sval->len+STRING_OH) ; }
+void
+DB_free_STRING(sval)
+   register STRING *sval ;
+{
+   if (--sval->ref_cnt == 0)  zfree(sval, sval->len + STRING_OH) ;
+}
 
 #endif

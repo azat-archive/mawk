@@ -11,6 +11,9 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: fin.h,v $
+ * Revision 1.1.1.1  1993/07/03  18:58:13  mike
+ * move source to cvs
+ *
  * Revision 5.2  1992/01/06  08:16:24  brennan
  * setmode() proto for MSDOS
  *

@@ -11,6 +11,27 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: symtype.h,v $
+ * Revision 1.5  1995/04/21  14:20:23  mike
+ * move_level variable to fix bug in arglist patching of moved code.
+ *
+ * Revision 1.4  1994/12/13  00:13:02  mike
+ * delete A statement to delete all of A at once
+ *
+ * Revision 1.3  1993/12/01  14:25:25  mike
+ * reentrant array loops
+ *
+ * Revision 1.2  1993/07/15  01:55:08  mike
+ * rm SIZE_T & indent
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:21  mike
+ * move source to cvs
+ *
+ * Revision 5.5  1993/01/09  19:03:44  mike
+ * code_pop checks if the resolve_list needs relocation
+ *
+ * Revision 5.4  1993/01/07  02:50:33  mike
+ * relative vs absolute code
+ *
  * Revision 5.3  1992/12/17  02:48:01  mike
  * 1.1.2d changes for DOS
  *
@@ -57,6 +78,7 @@ ANODE *link , *ilink ;
 
 #define  CREATE         1
 #define  NO_CREATE      0
+#define  LOCAL_DEL      1
 
 /* note ARRAY is a ptr to a hash table */
 
@@ -64,17 +86,18 @@ CELL *PROTO(array_find, (ARRAY,CELL *, int) ) ;
 INST *PROTO(array_loop, (INST *, CELL *, CELL *) ) ;
 void PROTO(array_delete, (ARRAY, CELL *) ) ;
 CELL *PROTO(array_cat, (CELL *, int) ) ;
-void PROTO(array_free, (ARRAY) ) ;
+void PROTO(array_free, (ARRAY,int) ) ;
 void PROTO(load_array, (ARRAY,int)) ;
 
 #define new_ARRAY() (ARRAY)memset(zmalloc(A_HASH_PRIME *\
                         sizeof(struct array)),\
-                        0 , SIZE_T(A_HASH_PRIME*sizeof(struct array)))
+                        0 , A_HASH_PRIME*sizeof(struct array))
 
 extern  ARRAY  Argv ;
 
 /* struct to hold the state of an array loop */
-typedef struct {
+typedef struct al_state {
+struct al_state *link ;
 CELL *var ;
 ARRAY  A  ;
 int index ;   /* A[index]  */
@@ -85,7 +108,7 @@ int  PROTO( inc_aloop_state, (ALOOP_STATE*)) ;
 
 /* for parsing  (i,j) in A  */
 typedef  struct {
-INST *start ;
+int start ; /* offset to code_base */
 int cnt ;
 } ARG2_REC ;
 
@@ -163,6 +186,7 @@ typedef  struct fcall {
 struct fcall *link ;
 FBLOCK  *callee ;
 short   call_scope ;
+short   move_level ;  
 FBLOCK  *call ;  /* only used if call_scope == SCOPE_FUNCT  */
 INST    *call_start ; /* computed later as code may be moved */
 CA_REC  *arg_list ;
@@ -173,7 +197,8 @@ unsigned line_no ; /* for error messages */
 extern  FCALL_REC  *resolve_list ;
 
 void PROTO(resolve_fcalls, (void) ) ;
-void PROTO(check_fcall, (FBLOCK*,int,FBLOCK*,CA_REC*,unsigned) ) ;
+void PROTO(check_fcall, (FBLOCK*,int,int,FBLOCK*,CA_REC*,unsigned) ) ;
+void  PROTO(relocate_resolve_list, (int,int,FBLOCK*,int,unsigned,int)) ;
 
 /* hash.c */
 unsigned  PROTO( hash, (char *) ) ;

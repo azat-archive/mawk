@@ -12,6 +12,19 @@ the GNU General Public License, version 2, 1991.
 
 /*
 $Log: vargs.h,v $
+ * Revision 1.4  1994/12/14  14:36:54  mike
+ * sometimes stdarg.h exists, but depending on compiler flags it is
+ * unusable -- assume NO_PROTOS => NO_STDARG_H
+ *
+ * Revision 1.3  1994/10/08  19:18:38  mike
+ * trivial change
+ *
+ * Revision 1.2  1993/07/04  12:52:19  mike
+ * start on autoconfig changes
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:22  mike
+ * move source to cvs
+ *
  * Revision 1.1  1992/10/02  23:23:41  mike
  * Initial revision
  *
@@ -21,8 +34,13 @@ $Log: vargs.h,v $
    only used for error messages
 */
 
+#ifdef     NO_PROTOS
+#ifndef    NO_STDARG_H   
+#define    NO_STDARG_H  1
+#endif
+#endif
 
-#if   HAVE_STDARG_H == 0
+#if     NO_STDARG_H
 #include <varargs.h>
 
 #ifndef  VA_ALIST
@@ -40,7 +58,7 @@ $Log: vargs.h,v $
                                   a1 = va_arg(p,t1);\
                                   a2 = va_arg(p,t2)
 
-#else  /* HAVE_STDARG_H  */
+#else  /* have stdarg.h */
 #include <stdarg.h>
 
 #ifndef  VA_ALIST

@@ -75,7 +75,7 @@
 typedef union{
 CELL *cp ;
 SYMTAB *stp ;
-INST  *start ; /* code starting address */
+int  start ; /* code starting address as offset from code_base */
 PF_CP  fp ;  /* ptr to a (print/printf) or (sub/gsub) function */
 BI_REC *bip ; /* ptr to info about a builtin */
 FBLOCK  *fbp  ; /* ptr to a function block */

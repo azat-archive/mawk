@@ -11,6 +11,12 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log: init.h,v $
+ * Revision 1.2  1995/06/18  19:42:18  mike
+ * Remove some redundant declarations and add some prototypes
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:14  mike
+ * move source to cvs
+ *
  * Revision 5.1  1991/12/05  07:59:22  brennan
  * 1.1 pre-release
  *
@@ -42,7 +48,6 @@ void  PROTO( code_init, (void) ) ;
 void  PROTO( code_cleanup, (void) ) ;
 void  PROTO( compile_cleanup, (void) ) ;
 void PROTO(scan_init, ( char *) ) ;
-void PROTO(scan_cleanup, (void) ) ;
 void PROTO(bi_vars_init, (void) ) ;
 void PROTO(bi_funct_init, (void) ) ;
 void PROTO(print_init, (void) ) ;

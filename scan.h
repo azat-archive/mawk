@@ -12,6 +12,15 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log: scan.h,v $
+ * Revision 1.3  1995/06/18  19:42:26  mike
+ * Remove some redundant declarations and add some prototypes
+ *
+ * Revision 1.2  1994/09/23  00:20:06  mike
+ * minor bug fix: handle \ in eat_nl()
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:20  mike
+ * move source to cvs
+ *
  * Revision 5.1  1991/12/05  07:59:33  brennan
  * 1.1 pre-release
  *
@@ -72,15 +81,10 @@ extern  char scan_code[256] ;
 
 #ifndef  MAKESCAN
 
-/* global functions in scan.c */
-
-void  PROTO(scan_init,  (char *) ) ;
-void  PROTO(scan_cleanup, (void) ) ;
 void  PROTO(eat_nl, (void) ) ;
-int   PROTO(yylex, (void) ) ;
 
-
-extern  YYSTYPE  yylval ;
+/* in error.c */
+void  PROTO( unexpected_char, (void) ) ;
 
 #define  ct_ret(x)  return current_token = (x)
 

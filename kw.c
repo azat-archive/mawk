@@ -12,7 +12,13 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log: kw.c,v $
- * Revision 5.1  1991/12/05  07:56:12  brennan
+ * Revision 1.2  1993/07/17  13:22:59  mike
+ * indent and general code cleanup
+ *
+ * Revision 1.1.1.1  1993/07/03	 18:58:15  mike
+ * move source to cvs
+ *
+ * Revision 5.1	 1991/12/05  07:56:12  brennan
  * 1.1 pre-release
  *
 */
@@ -27,54 +33,63 @@ the GNU General Public License, version 2, 1991.
 #include "init.h"
 
 
-static struct kw {
-char *text ;
-short kw ;
-}  keywords[] = {
+static struct kw
+{
+   char *text ;
+   short kw ;
+}
+keywords[] =
+{
 
-"print", PRINT,
-"printf", PRINTF,
-"do" , DO ,
-"while" , WHILE ,
-"for" , FOR ,
-"break" , BREAK ,
-"continue" , CONTINUE ,
-"if" , IF ,
-"else", ELSE ,
-"in" , IN ,
-"delete", DELETE ,
-"split" , SPLIT ,
-"match" , MATCH_FUNC ,
-"BEGIN" , BEGIN,
-"END" ,   END ,
-"exit" , EXIT ,
-"next" , NEXT ,
-"return", RETURN,
-"getline", GETLINE,
-"sub" , SUB,
-"gsub", GSUB,
-"function", FUNCTION,
-(char *) 0 , 0 } ;
+   "print", PRINT,
+   "printf", PRINTF,
+   "do", DO,
+   "while", WHILE,
+   "for", FOR,
+   "break", BREAK,
+   "continue", CONTINUE,
+   "if", IF,
+   "else", ELSE,
+   "in", IN,
+   "delete", DELETE,
+   "split", SPLIT,
+   "match", MATCH_FUNC,
+   "BEGIN", BEGIN,
+   "END", END,
+   "exit", EXIT,
+   "next", NEXT,
+   "return", RETURN,
+   "getline", GETLINE,
+   "sub", SUB,
+   "gsub", GSUB,
+   "function", FUNCTION,
+   (char *) 0, 0
+} ;
 
 /* put keywords in the symbol table */
-void kw_init()
-{ register struct kw *p = keywords ;
-  register SYMTAB *q ;
+void
+kw_init()
+{
+   register struct kw *p = keywords ;
+   register SYMTAB *q ;
 
-  while ( p->text )
-  { q = insert( p->text ) ;
-    q->type = ST_KEYWORD ;
-    q->stval.kw = p++ -> kw ;
-  }
+   while (p->text)
+   {
+      q = insert(p->text) ;
+      q->type = ST_KEYWORD ;
+      q->stval.kw = p++->kw ;
+   }
 }
 
 /* find a keyword to emit an error message */
-char *find_kw_str( kw_token )
-  int kw_token ;
-{ struct kw *p ;
+char *
+find_kw_str(kw_token)
+   int kw_token ;
+{
+   struct kw *p ;
 
-  for( p = keywords ; p->text ; p++ )
-        if ( p->kw == kw_token )  return p->text ;
-  /* search failed */
-  return (char *) 0 ;
+   for (p = keywords; p->text; p++)
+      if (p->kw == kw_token)  return p->text ;
+   /* search failed */
+   return (char *) 0 ;
 }

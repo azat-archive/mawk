@@ -12,6 +12,24 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log: error.c,v $
+ * Revision 1.6  1995/06/06  00:18:22  mike
+ * change mawk_exit(1) to mawk_exit(2)
+ *
+ * Revision 1.5  1994/12/13  00:26:33  mike
+ * rt_nr and rt_fnr for run-time error messages
+ *
+ * Revision 1.4  1994/09/23  00:20:00  mike
+ * minor bug fix: handle \ in eat_nl()
+ *
+ * Revision 1.3  1993/07/17  13:22:49  mike
+ * indent and general code cleanup
+ *
+ * Revision 1.2  1993/07/04  12:51:44  mike
+ * start on autoconfig changes
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:11  mike
+ * move source to cvs
+ *
  * Revision 5.3  1993/01/22  14:55:46  mike
  * trivial change for unexpected_char()
  *
@@ -35,24 +53,17 @@ the GNU General Public License, version 2, 1991.
 #endif
 
 static void  PROTO( rt_where, (void) ) ;
-static void  PROTO( unexpected_char, (void) ) ;
 static void  PROTO( missing, (int, char *, int) ) ;
 static char *PROTO( type_to_str, (int) ) ;
 
-#if HAVE_STRERROR == 0
-#define strerror(n) ((n)>0&&(n)<sys_nerr?sys_errlist[n]:(char*)0)
-extern int sys_nerr ;
-extern char *sys_errlist[];
-#endif
 
-
-#ifdef  USE_SIMPLE_VFPRINTF
+#ifdef  NO_VFPRINTF
 #define  vfprintf  simple_vfprintf
 #endif
 
 
-extern int NR_flag ; /* on if tracking NR */
-
+/* for run time error messages only */
+unsigned rt_nr , rt_fnr ;
 
 static struct token_str  {
 short token ;
@@ -191,7 +202,7 @@ void  yyerror(s)
   return ;
 
 done :
-  if ( ++compile_error_count == MAX_COMPILE_ERRORS ) mawk_exit(1) ;
+  if ( ++compile_error_count == MAX_COMPILE_ERRORS ) mawk_exit(2) ;
 }
 
 
@@ -204,7 +215,7 @@ void  errmsg VA_ALIST2(int , errnum, char *, format)
   fprintf(stderr, "%s: " , progname) ;
 
   VA_START2(args, int, errnum, char *, format) ;
-  (void) vfprintf(stderr, format, args) ;
+  vfprintf(stderr, format, args) ;
   va_end(args) ;
 
   if ( errnum > 0 ) fprintf(stderr, " (%s)" , strerror(errnum) ) ;
@@ -228,7 +239,7 @@ void  compile_error  VA_ALIST(char *, format)
   vfprintf(stderr, format, args) ;
   va_end(args) ;
   fprintf(stderr, "\n") ;
-  if ( ++compile_error_count == MAX_COMPILE_ERRORS ) mawk_exit(1) ;
+  if ( ++compile_error_count == MAX_COMPILE_ERRORS ) mawk_exit(2) ;
 }
 
 void  rt_error VA_ALIST( char *, format)
@@ -240,7 +251,7 @@ void  rt_error VA_ALIST( char *, format)
   va_end(args) ;
   putc('\n',stderr) ;
   rt_where() ;
-  mawk_exit(1) ;
+  mawk_exit(2) ;
 }
 
 
@@ -248,14 +259,14 @@ void bozo(s)
   char *s ;
 { 
   errmsg(0, "bozo: %s" , s) ; 
-  mawk_exit(1) ;
+  mawk_exit(3) ;
 }
 
 void overflow(s, size)
   char *s ; unsigned size ;
 { 
   errmsg(0 , "program limit exceeded: %s size=%u", s, size) ;
-  mawk_exit(1) ; 
+  mawk_exit(2) ; 
 }
 
 
@@ -264,13 +275,9 @@ void overflow(s, size)
 static void rt_where()
 {
   if ( FILENAME->type != C_STRING ) cast1_to_s(FILENAME) ;
-  if ( TEST2(NR) != TWO_DOUBLES ) cast2_to_d(NR) ;
 
-  fprintf(stderr, "\tFILENAME=\"%s\"", string(FILENAME)->str) ;
-  if ( NR_flag ) 
-      fprintf(stderr, " FNR=%g NR=%g" , FNR->dval, NR->dval) ;
-
-  fprintf(stderr, "\n") ;
+  fprintf(stderr, "\tFILENAME=\"%s\" FNR=%u NR=%u\n", 
+    string(FILENAME)->str, rt_fnr, rt_nr) ;
 }
 
 /* run time */
@@ -279,10 +286,11 @@ void rt_overflow(s, size)
 { 
   errmsg(0 , "program limit exceeded: %s size=%u", s, size) ;
   rt_where() ;
-  mawk_exit(1) ;
+  mawk_exit(2) ;
 }
 
-static void unexpected_char()
+void 
+unexpected_char()
 { int c = yylval.ival ;
 
   fprintf(stderr, "%s: %u: ", progname, token_lineno) ;
@@ -317,8 +325,7 @@ void type_error(p)
 
 
 
-
-#ifdef  USE_SIMPLE_VFPRINTF
+#ifdef  NO_VFPRINTF
 
 /* a minimal vfprintf  */
 int simple_vfprintf( fp, format, argp)

@@ -12,7 +12,7 @@ BEGIN {  stack_index = 0 # stack[] holds the input files
   for(i = 1 ; i < ARGC ; i++)
   { 
     file = ARGV[i]
-    if ( file !~ /\.c$/ )  continue  # skip it
+    if ( file !~ /\.[cC]$/ )  continue  # skip it
     outfile = substr(file, 1, length(file)-2) ".o"
 
     # INCLUDED[] stores the set of included files

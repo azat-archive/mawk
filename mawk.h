@@ -1,7 +1,7 @@
 
 /********************************************
 mawk.h
-copyright 1991 1992, Michael D. Brennan
+copyright 1991-94, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -12,30 +12,33 @@ the GNU General Public License, version 2, 1991.
 
 
 /*   $Log: mawk.h,v $
- * Revision 5.5.1.3  1993/01/22  15:04:50  mike
- * pow2->mpow2 for linux
+ * Revision 1.9  1995/06/18  19:42:21  mike
+ * Remove some redundant declarations and add some prototypes
  *
- * Revision 5.5.1.2  1993/01/20  12:53:10  mike
- * d_to_l()
+ * Revision 1.8  1995/06/18  19:17:48  mike
+ * Create a type Int which on most machines is an int, but on machines
+ * with 16bit ints, i.e., the PC is a long.  This fixes implicit assumption
+ * that int==long.
  *
- * Revision 5.5.1.1  1993/01/15  03:33:46  mike
- * patch3: safer double to int conversion
+ * Revision 1.7  1995/06/09  22:57:17  mike
+ * parse() no longer returns on error
  *
- * Revision 5.5  1992/07/06  20:15:49  brennan
- * DONT_PROTO_OPEN macro
+ * Revision 1.6  1994/12/13  00:09:55  mike
+ * rt_nr and rt_fnr for run-time error messages
  *
- * Revision 5.4  1992/03/03  16:34:41  brennan
- * conditional around open() proto
+ * Revision 1.5  1994/12/11  23:25:09  mike
+ * -Wi option
  *
- * Revision 5.3  92/01/09  08:46:58  brennan
- * cell destroy macro
- * 
- * Revision 5.2  92/01/06  08:08:56  brennan
- * binmode() proto for MSDOS
- * 
- * Revision 5.1  91/12/05  07:59:26  brennan
- * 1.1 pre-release
- * 
+ * Revision 1.4  1994/12/11  22:14:18  mike
+ * remove THINK_C #defines.  Not a political statement, just no indication
+ * that anyone ever used it.
+ *
+ * Revision 1.3  1993/07/07  00:07:41  mike
+ * more work on 1.2
+ *
+ * Revision 1.2  1993/07/04  12:52:06  mike
+ * start on autoconfig changes
+ *
 */
 
 
@@ -44,33 +47,17 @@ the GNU General Public License, version 2, 1991.
 #ifndef  MAWK_H
 #define  MAWK_H   
 
-#include  "config.h"
+#include  "nstd.h"
+#include <stdio.h>
+#include "types.h"
 
 #ifdef   DEBUG
 #define  YYDEBUG  1
 extern  int   yydebug ;  /* print parse if on */
 extern  int   dump_RE ;
 #endif
-extern  int   dump_code ;
-extern  int   posix_space_flag ; 
 
-#include <stdio.h>
-
-#if  HAVE_STRING_H
-#include <string.h>
-#else
-char *strchr() ;
-char *strcpy() ;
-char *strrchr() ;
-#endif
-
-#if  HAVE_STDLIB_H
-#include <stdlib.h>
-#endif
-
-#include "types.h"
-
-
+extern  short  posix_space_flag , interactive_flag ;
 
 
 /*----------------
@@ -114,12 +101,9 @@ extern  int  print_flag, getline_flag ;
 extern  short mawk_state ;
 #define EXECUTION       1  /* other state is 0 compiling */
 
-/*---------*/
 
-#ifndef MSDOS_MSC
-extern  int  errno ;     
-#endif
 extern  char *progname ; /* for error messages */
+extern  unsigned rt_nr , rt_fnr ; /* ditto */
 
 /* macro to test the type of two adjacent cells */
 #define TEST2(cp)  (mpow2[(cp)->type]+mpow2[((cp)+1)->type])
@@ -146,9 +130,10 @@ void  PROTO( cast_to_RE, (CELL *) ) ;
 void  PROTO( cast_for_split, (CELL *) ) ;
 void  PROTO( check_strnum, (CELL *) ) ;
 void  PROTO( cast_to_REPL, (CELL *) ) ;
-long  PROTO( d_to_l, (double)) ;
+Int   PROTO( d_to_I, (double)) ;
 
-#define d_to_i(d)	((int)d_to_l(d))
+#define d_to_i(d)     ((int)d_to_I(d))
+
 
 int   PROTO( test, (CELL *) ) ; /* test for null non-null */
 CELL *PROTO( cellcpy, (CELL *, CELL *) ) ;
@@ -161,33 +146,18 @@ void  PROTO( mawk_exit, (int) ) ;
 void PROTO( da, (INST *, FILE *)) ;
 char *PROTO( str_str, (char*, char*, unsigned) ) ;
 char *PROTO( rm_escape, (char *) ) ;
-int   PROTO( re_split, (char *, PTR) ) ;
 char *PROTO( re_pos_match, (char *, PTR, unsigned *) ) ;
 int   PROTO( binmode, (void)) ;
 
-void  PROTO( exit, (int) ) ;
 
-#ifdef THINK_C
-#include <unix.h>
-#else
 int   PROTO( close, (int) ) ;
-
-/* ANSI compilers won't like open() if they've ever seen open as
-   int open(char *,int, ...).  If so , 
-   #define DONT_PROTO_OPEN
-*/
-
-#ifndef DONT_PROTO_OPEN
-int   PROTO( open, (char *,int, int) ) ;
-#endif
-
 int   PROTO( read, (int , PTR, unsigned) ) ;
-#endif
 
-int  PROTO ( parse, (void) ) ;
+void PROTO ( parse, (void) ) ;
 int  PROTO ( yylex, (void) ) ;
 int  PROTO( yyparse, (void) ) ;
 void PROTO( yyerror, (char *) ) ;
+void PROTO( scan_cleanup, (void)) ;
 
 void PROTO( bozo, (char *) ) ;
 void PROTO( errmsg , (int, char*, ...) ) ;
@@ -196,7 +166,5 @@ void PROTO( compile_error, ( char *, ...) ) ;
 void  PROTO( execute, (INST *, CELL *, CELL *) ) ;
 char *PROTO( find_kw_str, (int) ) ;
 
-double strtod() ;
-double fmod() ;
 
 #endif  /* MAWK_H */

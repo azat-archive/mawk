@@ -1,4 +1,4 @@
-.TH MAWK 1  "Jul 13 1992" "Version 1.1.2" "USER COMMANDS"
+.TH MAWK 1  "Dec 22 1994" "Version 1.2" "USER COMMANDS"
 .\" strings
 .ds ex \fIexpr\fR
 .SH NAME
@@ -38,7 +38,7 @@ Addison-Wesley Publishing, 1988.  (Hereafter referred to as
 the AWK book.)
 .B mawk
 conforms to the Posix 1003.2
-(draft 11.2)
+(draft 11.3)
 definition of the AWK language
 which contains a few features not described in the AWK
 book,  and
@@ -89,7 +89,7 @@ implementation of AWK, and implementation specific options are
 prefaced with
 .BR \-W .
 .B mawk 
-provides four:
+provides six:
 .TP \w'\-\fBW'u+\w'\fRsprintf=\fInum\fR'u+2n
 \-\fBW \fRversion
 .B mawk
@@ -99,7 +99,20 @@ stderr and exits 0.
 .TP
 \-\fBW \fRdump
 writes an assembler like listing of the internal
-representation of the program to stderr.
+representation of the program to stdout and exits 0 
+(on successful compilation).
+.TP
+\-\fBW \fRinteractive
+sets unbuffered writes to stdout and line buffered reads from stdin.
+Records from stdin are lines regardless of the value of
+.BR RS .
+.TP
+\-\fBW \fRexec \fIfile
+Program text is read from 
+.I file
+and this is the last option. Useful on systems that support the
+.B #!
+"magic number" convention for executable scripts.
 .TP
 \-\fBW \fRsprintf=\fInum\fR
 adjusts the size of 
@@ -114,6 +127,11 @@ should be recompiled.
 forces
 .B mawk
 not to consider '\en' to be space.
+.PP
+The short forms 
+.BR \-W [vdiesp]
+are recognized and on some systems \fB\-W\fRe is mandatory to avoid
+command line length limitations.
 .SH "THE AWK LANGUAGE"
 .SS "\fB1. Program structure"
 An AWK program is a sequence of 
@@ -259,7 +277,7 @@ statements
 .fi
 The value stored in variable y will be typed numeric.
 If x is not numeric,
-the value taken from x is converted to numeric before it is added to
+the value read from x is converted to numeric before it is added to
 2 and stored in y.  The value stored in variable z will be typed
 string, and the value of x will be converted to string if necessary
 and concatenated with "hello".  (Of course, the value and type
@@ -353,7 +371,7 @@ Regular expressions are built up from characters as follows:
 matches any non-metacharacter
 .IR c .
 .TP
-"\e\fIc\fR"
+\e\fIc\fR
 matches a character defined by the same escape sequences used
 in string constants or the literal
 character
@@ -524,7 +542,7 @@ and the last is string.
 .PP
 The expression syntax is 
 similar to C.  Primary expressions are numeric constants,
-string constants, variables, fields, arrays and functions.  
+string constants, variables, fields, arrays and function calls.  
 The identifier
 for a variable, array or function can be a sequence of
 letters, digits and underscores, that does
@@ -605,6 +623,12 @@ The statement,
 causes
 \*(ae
 not to exist.
+.B mawk 
+supports an extension,
+.B delete 
+.IR array ,
+which deletes all elements of 
+.IR array .
 .PP
 Multidimensional arrays are synthesized with concatenation using
 the built-in variable
@@ -702,7 +726,8 @@ is used.  An & in the replacement string
 .I s
 is replaced by the matched substring of
 .IR t .
-\e& puts a literal & in the replacement string.
+\e& and \e\e put  literal & and \e, respectively,
+in the replacement string.
 .TP
 index(\fIs,t\fR)
 If 
@@ -872,6 +897,9 @@ By convention,
 .B mawk
 associates the filename "/dev/stderr" with stderr which allows
 print and printf to be redirected to stderr.
+.B mawk
+also associates "\-" and "/dev/stdout" with stdin and stdout which
+allows these streams to be passed to functions.
 .PP
 The input function
 .B getline
@@ -935,9 +963,17 @@ Close returns 0 if
 is an open file,
 the exit status if
 .I expr
-is a piped command, and -1 otherwise.
-Close() is used to reread a file or command, make sure the other
+is a piped command, and \-1 otherwise.
+Close is used to reread a file or command, make sure the other
 end of an output pipe is finished or conserve file resources.
+.PP
+The function \fBfflush\fR(\*(ex) flushes the output file or pipe
+associated with
+.IR expr .
+Fflush returns 0 if
+.I expr
+is an open output stream else \-1.
+Fflush without an argument flushes stdout.
 .PP
 The function 
 \fBsystem\fR(\fIexpr\fR)
@@ -1101,6 +1137,16 @@ there are two records "a" and "b".
 .PP
 .B RS
 = " " is not special.
+.PP
+If 
+.B FS 
+= "", then
+.B mawk
+breaks the record into individual characters, and, similarly,
+split(\fIs,A,\fR"") places the individual characters of
+.I s
+into 
+.IR A .
 .\"
 .SS "\fB12. Multi-line records"
 Since 
@@ -1223,7 +1269,7 @@ skips to the next argument;
 else
 .B ARGV[i] 
 is opened for input.
-If it fails to open, execution terminates with exit code 1.
+If it fails to open, execution terminates with exit code 2.
 If no command line argument is a file argument, then input
 comes from stdin.
 Getline in a 
@@ -1288,7 +1334,7 @@ Program flow at the
 level can be changed with the 
 .nf
 .sp
-	\fBnext\fR   and
+	\fBnext
 	\fBexit  \fIopt_expr\fR
 .sp
 .fi
@@ -1376,7 +1422,7 @@ every record based on the first field.
 
 .fi
 .SH  "COMPATIBILITY ISSUES"
-The Posix 1003.2(draft 11.2) definition of the AWK language
+The Posix 1003.2(draft 11.3) definition of the AWK language
 is AWK as described in the AWK book with a few extensions
 that appeared in SystemVR4 nawk. The extensions are:
 .sp
@@ -1391,6 +1437,7 @@ New command options:  \-v var=value, multiple -f options and
 implementation options as arguments to \-W.
 .RE
 .sp
+
 Posix AWK is oriented to operate on files a line at 
 a time.
 .B RS
@@ -1475,10 +1522,24 @@ Posix explicitly declines to define the behavior which passively
 forces programs that must run under a variety of awks to use
 the more portable but less readable, double escape.
 .PP
-Posix AWK does not recognize "/dev/stderr" or \ex hex escape
+Posix AWK does not recognize "/dev/std{out,err}" or \ex hex escape
 sequences in strings.  Unlike ANSI C,
 .B mawk
-limits the number of digits that follows \ex to two.
+limits the number of digits that follows \ex to two as the current
+implementation only supports 8 bit characters.
+The built-in
+.B fflush
+first appeared in a recent (1993) AT&T awk released to netlib, and is
+not part of the posix standard.  Aggregate deletion with
+.B delete
+.I array
+is not part of the posix standard.
+.PP
+Posix explicitly leaves the behavior of 
+.B FS
+= "" undefined, and mentions splitting the record into characters as
+a possible interpretation, but currently this use is not portable
+across implementations.
 .PP
 Finally, here is how 
 .B mawk

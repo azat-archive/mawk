@@ -1,7 +1,7 @@
 
 /********************************************
 parse.y
-copyright 1991, Michael D. Brennan
+copyright 1991-94, Michael D. Brennan
 
 This is a source file for mawk, an implementation of
 the AWK programming language.
@@ -11,8 +11,54 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log: parse.y,v $
- * Revision 5.4.1.1  1993/05/05  00:08:26  mike
- * patch4: forgot to set $$ in LENGTH alone production
+ * Revision 1.11  1995/06/11  22:40:09  mike
+ * change if(dump_code) -> if(dump_code_flag)
+ * cleanup of parse()
+ * add cast to shutup solaris cc compiler on char to int comparison
+ * switch_code_to_main() which cleans up outside_error production
+ *
+ * Revision 1.10  1995/04/21  14:20:21  mike
+ * move_level variable to fix bug in arglist patching of moved code.
+ *
+ * Revision 1.9  1995/02/19  22:15:39  mike
+ * Always set the call_offset field in a CA_REC (for obscure
+ * reasons in fcall.c (see comments) there.)
+ *
+ * Revision 1.8  1994/12/13  00:39:20  mike
+ * delete A statement to delete all of A at once
+ *
+ * Revision 1.7  1994/10/08  19:15:48  mike
+ * remove SM_DOS
+ *
+ * Revision 1.6  1993/12/01  14:25:17  mike
+ * reentrant array loops
+ *
+ * Revision 1.5  1993/07/22  00:04:13  mike
+ * new op code _LJZ _LJNZ
+ *
+ * Revision 1.4  1993/07/15  23:38:15  mike
+ * SIZE_T and indent
+ *
+ * Revision 1.3  1993/07/07  00:07:46  mike
+ * more work on 1.2
+ *
+ * Revision 1.2  1993/07/03  21:18:01  mike
+ * bye to yacc_mem
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:17  mike
+ * move source to cvs
+ *
+ * Revision 5.8  1993/05/03  01:07:18  mike
+ * fix bozo in LENGTH production
+ *
+ * Revision 5.7  1993/01/09  19:03:44  mike
+ * code_pop checks if the resolve_list needs relocation
+ *
+ * Revision 5.6  1993/01/07  02:50:33  mike
+ * relative vs absolute code
+ *
+ * Revision 5.5  1993/01/01  21:30:48  mike
+ * split new_STRING() into new_STRING and new_STRING0
  *
  * Revision 5.4  1992/08/08  17:17:20  brennan
  * patch 2: improved timing of error recovery in
@@ -33,8 +79,8 @@ the GNU General Public License, version 2, 1991.
 %{
 #include <stdio.h>
 #include "mawk.h"
-#include "code.h"
 #include "symtype.h"
+#include "code.h"
 #include "memory.h"
 #include "bi_funct.h"
 #include "bi_vars.h"
@@ -42,21 +88,16 @@ the GNU General Public License, version 2, 1991.
 #include "field.h"
 #include "files.h"
 
-#ifdef  YYXBYACC
-#define YYBYACC		1
-#endif
 
 #define  YYMAXDEPTH	200
 
-/* Bison's use of MSDOS and ours clashes */
-#undef   MSDOS
 
 extern void  PROTO( eat_nl, (void) ) ;
-static void  PROTO( resize_fblock, (FBLOCK *, INST *) ) ;
+static void  PROTO( resize_fblock, (FBLOCK *) ) ;
+static void  PROTO( switch_code_to_main, (void)) ;
 static void  PROTO( code_array, (SYMTAB *) ) ;
 static void  PROTO( code_call_id, (CA_REC *, SYMTAB *) ) ;
 static void  PROTO( field_A2I, (void)) ;
-static int   PROTO( current_offset, (void) ) ;
 static void  PROTO( check_var, (SYMTAB *) ) ;
 static void  PROTO( check_array, (SYMTAB *) ) ;
 static void  PROTO( RE_as_arg, (void)) ;
@@ -65,9 +106,15 @@ static int scope ;
 static FBLOCK *active_funct ;
       /* when scope is SCOPE_FUNCT  */
 
-#define  code_address(x)  if( is_local(x) )\
-                          { code1(L_PUSHA) ; code1((x)->offset) ; }\
+#define  code_address(x)  if( is_local(x) ) \
+			     code2op(L_PUSHA, (x)->offset) ;\
                           else  code2(_PUSHA, (x)->stval.cp) 
+
+#define  CDP(x)  (code_base+(x))
+/* WARNING: These CDP() calculations become invalid after calls
+   that might change code_base.  Which are:  code2(), code2op(),
+   code_jmp() and code_pop().
+*/
 
 /* this nonsense caters to MSDOS large model */
 #define  CODE_FE_PUSHA()  code_ptr->ptr = (PTR) 0 ; code1(FE_PUSHA)
@@ -77,7 +124,7 @@ static FBLOCK *active_funct ;
 %union{
 CELL *cp ;
 SYMTAB *stp ;
-INST  *start ; /* code starting address */
+int  start ; /* code starting address as offset from code_base */
 PF_CP  fp ;  /* ptr to a (print/printf) or (sub/gsub) function */
 BI_REC *bip ; /* ptr to info about a builtin */
 FBLOCK  *fbp  ; /* ptr to a function block */
@@ -165,26 +212,16 @@ PA_block  :  block
              }
 
           |  BEGIN  
-                { 
-		  be_expand(&begin_code) ;
-                  scope = SCOPE_BEGIN ;
-                }
+                { be_setup(scope = SCOPE_BEGIN) ; }
 
              block
-                { be_shrink(&begin_code) ;
-                  scope = SCOPE_MAIN ;
-                }
+                { switch_code_to_main() ; }
 
           |  END    
-                { 
-		  be_expand(&end_code) ;
-                  scope = SCOPE_END ;
-                }
+                { be_setup(scope = SCOPE_END) ; }
 
              block
-                { be_shrink(&end_code) ;
-                  scope = SCOPE_MAIN ;
-                }
+                { switch_code_to_main() ; }
 
           |  expr  /* this works just like an if statement */
              { code_jmp(_JZ, (INST*)0) ; }
@@ -194,20 +231,30 @@ PA_block  :  block
 
     /* range pattern, see comment in execute.c near _RANGE */
           |  expr COMMA 
-             { code_push($1, code_ptr - $1) ;
-               code_ptr = $1 ;
-               code1(_RANGE) ; code1(1) ;
+             { 
+	       INST *p1 = CDP($1) ;
+             int len ;
+
+	       code_push(p1, code_ptr - p1, scope, active_funct) ;
+               code_ptr = p1 ;
+
+               code2op(_RANGE, 1) ;
                code_ptr += 3 ;
-               code_ptr += code_pop(code_ptr) ;
+               len = code_pop(code_ptr) ;
+             code_ptr += len ;
                code1(_STOP) ;
-               $1[2].op = code_ptr - ($1+1) ;
+             p1 = CDP($1) ;
+               p1[2].op = code_ptr - (p1+1) ;
              }
              expr
              { code1(_STOP) ; }
 
              block_or_separator
-             { $1[3].op = $6 - ($1+1) ;
-               $1[4].op = code_ptr - ($1+1) ;
+             { 
+	       INST *p1 = CDP($1) ;
+	       
+	       p1[3].op = CDP($6) - (p1+1) ;
+               p1[4].op = code_ptr - (p1+1) ;
              }
           ;
 
@@ -216,14 +263,14 @@ PA_block  :  block
 block   :  LBRACE   statement_list  RBRACE
             { $$ = $2 ; }
         |  LBRACE   error  RBRACE 
-            { $$ = code_ptr ; /* does nothing won't be executed */
+            { $$ = code_offset ; /* does nothing won't be executed */
               print_flag = getline_flag = paren_cnt = 0 ;
               yyerrok ; }
         ;
 
 block_or_separator  :  block
                   |  separator     /* default print action */
-                     { $$ = code_ptr ;
+                     { $$ = code_offset ;
                        code1(_PUSHINT) ; code1(0) ;
                        code2(_PRINT, bi_print) ;
                      }
@@ -237,18 +284,18 @@ statement :  block
           |  expr   separator
              { code1(_POP) ; }
           |  /* empty */  separator
-             { $$ = code_ptr ; }
+             { $$ = code_offset ; }
           |  error  separator
-              { $$ = code_ptr ;
+              { $$ = code_offset ;
                 print_flag = getline_flag = 0 ;
                 paren_cnt = 0 ;
                 yyerrok ;
               }
           |  BREAK  separator
-             { $$ = code_ptr ; BC_insert('B', code_ptr+1) ;
+             { $$ = code_offset ; BC_insert('B', code_ptr+1) ;
                code2(_JMP, 0) /* don't use code_jmp ! */ ; }
           |  CONTINUE  separator
-             { $$ = code_ptr ; BC_insert('C', code_ptr+1) ;
+             { $$ = code_offset ; BC_insert('C', code_ptr+1) ;
                code2(_JMP, 0) ; }
           |  return_statement
              { if ( scope != SCOPE_FUNCT )
@@ -257,7 +304,7 @@ statement :  block
           |  NEXT  separator
               { if ( scope != SCOPE_MAIN )
                    compile_error( "improper use of next" ) ;
-                $$ = code_ptr ; 
+                $$ = code_offset ; 
                 code1(_NEXT) ;
               }
           ;
@@ -282,16 +329,18 @@ expr  :   cat_expr
 
       |   expr MATCH expr
           {
-            if ( $3 == code_ptr - 2 )
+	    INST *p3 = CDP($3) ;
+
+            if ( p3 == code_ptr - 2 )
             {
-               if ( $3->op == _MATCH0 )  $3->op = _MATCH1 ;
+               if ( p3->op == _MATCH0 )  p3->op = _MATCH1 ;
 
                else /* check for string */
-               if ( $3->op == _PUSHS )
+               if ( p3->op == _PUSHS )
                { CELL *cp = ZMALLOC(CELL) ;
 
                  cp->type = C_STRING ; 
-                 cp->ptr = $3[1].ptr ;
+                 cp->ptr = p3[1].ptr ;
                  cast_to_RE(cp) ;
                  code_ptr -= 2 ;
                  code2(_MATCH1, cp->ptr) ;
@@ -306,23 +355,23 @@ expr  :   cat_expr
 
 /* short circuit boolean evaluation */
       |   expr  OR
-              { code1(_DUP) ;
-                code_jmp(_JNZ, (INST*)0) ;
-                code1(_POP) ;
+              { code1(_TEST) ;
+                code_jmp(_LJNZ, (INST*)0) ;
               }
           expr
-          { patch_jmp(code_ptr) ; code1(_TEST) ; }
+          { code1(_TEST) ; patch_jmp(code_ptr) ; }
 
       |   expr AND
-              { code1(_DUP) ; code_jmp(_JZ, (INST*)0) ;
-                code1(_POP) ; }
+              { code1(_TEST) ; 
+		code_jmp(_LJZ, (INST*)0) ;
+	      }
           expr
-              { patch_jmp(code_ptr) ; code1(_TEST) ; }
+              { code1(_TEST) ; patch_jmp(code_ptr) ; }
 
       |  expr QMARK  { code_jmp(_JZ, (INST*)0) ; }
          expr COLON  { code_jmp(_JMP, (INST*)0) ; }
          expr
-         { patch_jmp(code_ptr) ; patch_jmp($7) ; }
+         { patch_jmp(code_ptr) ; patch_jmp(CDP($7)) ; }
       ;
 
 cat_expr :  p_expr             %prec CAT
@@ -331,14 +380,14 @@ cat_expr :  p_expr             %prec CAT
          ;
 
 p_expr  :   DOUBLE
-          {  $$ = code_ptr ; code2(_PUSHD, $1) ; }
+          {  $$ = code_offset ; code2(_PUSHD, $1) ; }
       |   STRING_
-          { $$ = code_ptr ; code2(_PUSHS, $1) ; }
+          { $$ = code_offset ; code2(_PUSHS, $1) ; }
       |   ID   %prec AND /* anything less than IN */
           { check_var($1) ;
-            $$ = code_ptr ;
+            $$ = code_offset ;
             if ( is_local($1) )
-            { code1(L_PUSHI) ; code1($1->offset) ; }
+            { code2op(L_PUSHI, $1->offset) ; }
             else code2(_PUSHI, $1->stval.cp) ;
           }
                             
@@ -347,7 +396,7 @@ p_expr  :   DOUBLE
       ;
 
 p_expr  :   RE     
-            { $$ = code_ptr ; code2(_MATCH0, $1) ; }
+            { $$ = code_offset ; code2(_MATCH0, $1) ; }
         ;
 
 p_expr  :   p_expr  PLUS   p_expr { code1(_ADD) ; } 
@@ -367,7 +416,7 @@ p_expr  :   p_expr  PLUS   p_expr { code1(_ADD) ; }
 
 p_expr  :  ID  INC_or_DEC
            { check_var($1) ;
-             $$ = code_ptr ;
+             $$ = code_offset ;
              code_address($1) ;
 
              if ( $2 == '+' )  code1(_POST_INC) ;
@@ -392,7 +441,7 @@ p_expr  :  field  INC_or_DEC
         ;
 
 lvalue :  ID
-        { $$ = code_ptr ; 
+        { $$ = code_offset ; 
           check_var($1) ;
           code_address($1) ;
         }
@@ -414,7 +463,7 @@ builtin :
         BUILTIN mark  LPAREN  arglist RPAREN
         { BI_REC *p = $1 ;
           $$ = $2 ;
-          if ( p-> min_args > $4 || p->max_args < $4 )
+          if ( (int)p->min_args > $4 || (int)p->max_args < $4 )
             compile_error(
             "wrong number of arguments in call to %s" ,
             p->name ) ;
@@ -423,7 +472,8 @@ builtin :
           code2(_BUILTIN , p->fp) ;
         }
 	| LENGTH   /* this is an irritation */
-	  { $$ = code_ptr ;
+	  {
+	    $$ = code_offset ;
 	    code1(_PUSHINT) ; code1(0) ;
 	    code2(_BUILTIN, $1->fp) ;
 	  }
@@ -431,11 +481,11 @@ builtin :
 
 /* an empty production to store the code_ptr */
 mark : /* empty */
-         { $$ = code_ptr ; }
+         { $$ = code_offset ; }
 
 /* print_statement */
 statement :  print mark pr_args pr_direction separator
-            { code2(_PRINT, $1) ; $$ = $2 ;
+            { code2(_PRINT, $1) ; 
               if ( $1 == bi_printf && $3 == 0 )
                     compile_error("no arguments in call to printf") ;
               print_flag = 0 ;
@@ -447,13 +497,13 @@ print   :  PRINT  { $$ = bi_print ; print_flag = 1 ;}
         |  PRINTF { $$ = bi_printf ; print_flag = 1 ; }
         ;
 
-pr_args :  arglist { code1(_PUSHINT) ; code1($1) ; }
+pr_args :  arglist { code2op(_PUSHINT, $1) ; }
         |  LPAREN  arg2 RPAREN
            { $$ = $2->cnt ; zfree($2,sizeof(ARG2_REC)) ; 
-             code1(_PUSHINT) ; code1($$) ; 
+             code2op(_PUSHINT, $$) ; 
            }
 	|  LPAREN  RPAREN
-	   { $$=0 ; code1(_PUSHINT) ; code1(0) ; }
+	   { $$=0 ; code2op(_PUSHINT, 0) ; }
         ;
 
 arg2   :   expr  COMMA  expr
@@ -467,7 +517,7 @@ arg2   :   expr  COMMA  expr
 
 pr_direction : /* empty */
              |  IO_OUT  expr
-                { code1(_PUSHINT) ; code1($1) ; }
+                { code2op(_PUSHINT, $1) ; }
              ;
 
 
@@ -487,7 +537,9 @@ else    :  ELSE { eat_nl() ; code_jmp(_JMP, (INST*)0) ; }
 
 /* if_else_statement */
 statement :  if_front statement else statement
-                { patch_jmp(code_ptr) ; patch_jmp($4) ; }
+                { patch_jmp(code_ptr) ; 
+		  patch_jmp(CDP($4)) ; 
+		}
 
 
 /*  LOOPS   */
@@ -499,8 +551,8 @@ do      :  DO
 /* do_statement */
 statement : do statement WHILE LPAREN expr RPAREN separator
         { $$ = $2 ;
-          code_jmp(_JNZ, $2) ; 
-          BC_clear(code_ptr, $5) ; }
+          code_jmp(_JNZ, CDP($2)) ; 
+          BC_clear(code_ptr, CDP($5)) ; }
         ;
 
 while_front :  WHILE LPAREN expr RPAREN
@@ -508,15 +560,15 @@ while_front :  WHILE LPAREN expr RPAREN
                   $$ = $3 ;
 
                   /* check if const expression */
-                  if ( code_ptr - 2 == $3 &&
+                  if ( code_ptr - 2 == CDP($3) &&
                        code_ptr[-2].op == _PUSHD &&
                        *(double*)code_ptr[-1].ptr != 0.0 
                      )
                      code_ptr -= 2 ;
                   else
-		  {
-		    code_push($3, code_ptr-$3) ;
-		    code_ptr = $3 ;
+		  { INST *p3 = CDP($3) ;
+		    code_push(p3, code_ptr-p3, scope, active_funct) ;
+		    code_ptr = p3 ;
                     code2(_JMP, (INST*)0) ; /* code2() not code_jmp() */
 		  }
                 }
@@ -525,21 +577,24 @@ while_front :  WHILE LPAREN expr RPAREN
 /* while_statement */
 statement  :    while_front  statement
                 { 
-		  INST *c_addr ; int len ;
+		  int  saved_offset ;
+		  int len ;
+		  INST *p1 = CDP($1) ;
+		  INST *p2 = CDP($2) ;
 
-                  if ( $1 != $2 )  /* real test in loop */
+                  if ( p1 != p2 )  /* real test in loop */
 		  {
-		    $1[1].op = code_ptr-($1+1) ;
-		    c_addr = code_ptr ;
+		    p1[1].op = code_ptr-(p1+1) ;
+		    saved_offset = code_offset ;
 		    len = code_pop(code_ptr) ;
 		    code_ptr += len ;
-		    code_jmp(_JNZ, $2) ;
-		    BC_clear(code_ptr, c_addr) ;
+		    code_jmp(_JNZ, CDP($2)) ;
+		    BC_clear(code_ptr, CDP(saved_offset)) ;
 		  }
 		  else /* while(1) */
 		  {
-		    code_jmp(_JMP, $1) ;
-		    BC_clear(code_ptr, $2) ;
+		    code_jmp(_JMP, p1) ;
+		    BC_clear(code_ptr, CDP($2)) ;
 		  }
                 }
                 ;
@@ -548,55 +603,62 @@ statement  :    while_front  statement
 /* for_statement */
 statement   :   for1 for2 for3 statement
                 { 
-                  INST *cont_address = code_ptr ;
+		  int cont_offset = code_offset ;
                   unsigned len = code_pop(code_ptr) ;
+		  INST *p2 = CDP($2) ;
+		  INST *p4 = CDP($4) ;
 
                   code_ptr += len ;
 
-		  if ( $2 != $4 )  /* real test in for2 */
+		  if ( p2 != p4 )  /* real test in for2 */
 		  {
-                    $4[-1].op = code_ptr - $4 + 1 ;
+                    p4[-1].op = code_ptr - p4 + 1 ;
 		    len = code_pop(code_ptr) ;
 		    code_ptr += len ;
-                    code_jmp(_JNZ, $4) ;
+                    code_jmp(_JNZ, CDP($4)) ;
 		  }
 		  else /*  for(;;) */
-		  code_jmp(_JMP, $4) ;
+		  code_jmp(_JMP, p4) ;
 
-		  BC_clear(code_ptr, cont_address) ;
+		  BC_clear(code_ptr, CDP(cont_offset)) ;
 
                 }
               ;
 
-for1    :  FOR LPAREN  SEMI_COLON   { $$ = code_ptr ; }
+for1    :  FOR LPAREN  SEMI_COLON   { $$ = code_offset ; }
         |  FOR LPAREN  expr SEMI_COLON
            { $$ = $3 ; code1(_POP) ; }
         ;
 
-for2    :  SEMI_COLON   { $$ = code_ptr ; }
+for2    :  SEMI_COLON   { $$ = code_offset ; }
         |  expr  SEMI_COLON
            { 
-             if ( code_ptr - 2 == $1 &&
+             if ( code_ptr - 2 == CDP($1) &&
                   code_ptr[-2].op == _PUSHD &&
                   * (double*) code_ptr[-1].ptr != 0.0
                 )
                     code_ptr -= 2 ;
              else   
 	     {
-	       code_push($1, code_ptr-$1) ;
-	       code_ptr = $1 ;
+	       INST *p1 = CDP($1) ;
+	       code_push(p1, code_ptr-p1, scope, active_funct) ;
+	       code_ptr = p1 ;
 	       code2(_JMP, (INST*)0) ;
 	     }
            }
         ;
 
 for3    :  RPAREN 
-           { eat_nl() ; BC_new() ; code_push((INST*)0,0) ; }
+           { eat_nl() ; BC_new() ;
+	     code_push((INST*)0,0, scope, active_funct) ;
+	   }
         |  expr RPAREN
-           { eat_nl() ; BC_new() ; 
+           { INST *p1 = CDP($1) ;
+	   
+	     eat_nl() ; BC_new() ; 
              code1(_POP) ;
-             code_push($1, code_ptr - $1) ;
-             code_ptr -= code_ptr - $1 ;
+             code_push(p1, code_ptr - p1, scope, active_funct) ;
+             code_ptr -= code_ptr - p1 ;
            }
         ;
 
@@ -610,7 +672,7 @@ expr    :  expr IN  ID
             }
         |  LPAREN arg2 RPAREN IN ID
            { $$ = $2->start ;
-             code1(A_CAT) ; code1($2->cnt) ;
+             code2op(A_CAT, $2->cnt) ;
              zfree($2, sizeof(ARG2_REC)) ;
 
              check_array($5) ;
@@ -622,11 +684,11 @@ expr    :  expr IN  ID
 lvalue  :  ID mark LBOX  args  RBOX
            { 
              if ( $4 > 1 )
-             { code1(A_CAT) ; code1($4) ; }
+             { code2op(A_CAT, $4) ; }
 
              check_array($1) ;
              if( is_local($1) )
-             { code1(LAE_PUSHA) ; code1($1->offset) ; }
+             { code2op(LAE_PUSHA, $1->offset) ; }
              else code2(AE_PUSHA, $1->stval.array) ;
              $$ = $2 ;
            }
@@ -635,11 +697,11 @@ lvalue  :  ID mark LBOX  args  RBOX
 p_expr  :  ID mark LBOX  args  RBOX   %prec  AND
            { 
              if ( $4 > 1 )
-             { code1(A_CAT) ; code1($4) ; }
+             { code2op(A_CAT, $4) ; }
 
              check_array($1) ;
              if( is_local($1) )
-             { code1(LAE_PUSHI) ; code1($1->offset) ; }
+             { code2op(LAE_PUSHI, $1->offset) ; }
              else code2(AE_PUSHI, $1->stval.array) ;
              $$ = $2 ;
            }
@@ -647,11 +709,11 @@ p_expr  :  ID mark LBOX  args  RBOX   %prec  AND
         |  ID mark LBOX  args  RBOX  INC_or_DEC
            { 
              if ( $4 > 1 )
-             { code1(A_CAT) ; code1($4) ; }
+             { code2op(A_CAT,$4) ; }
 
              check_array($1) ;
              if( is_local($1) )
-             { code1(LAE_PUSHA) ; code1($1->offset) ; }
+             { code2op(LAE_PUSHA, $1->offset) ; }
              else code2(AE_PUSHA, $1->stval.array) ;
              if ( $6 == '+' )  code1(_POST_INC) ;
              else  code1(_POST_DEC) ;
@@ -660,23 +722,29 @@ p_expr  :  ID mark LBOX  args  RBOX   %prec  AND
            }
         ;
 
-/* delete A[i] */
+/* delete A[i] or delete A */
 statement :  DELETE  ID mark LBOX args RBOX separator
              { 
                $$ = $3 ;
-               if ( $5 > 1 ) { code1(A_CAT) ; code1($5) ; }
+               if ( $5 > 1 ) { code2op(A_CAT, $5) ; }
                check_array($2) ;
                code_array($2) ;
                code1(A_DEL) ;
              }
-
+	  |  DELETE ID separator
+	     {
+		$$ = code_offset ;
+		check_array($2) ;
+		code_array($2) ;
+		code1(DEL_A) ;
+	     }
           ;
 
 /*  for ( i in A )  statement */
 
 array_loop_front :  FOR LPAREN ID IN ID RPAREN
                     { eat_nl() ; BC_new() ;
-                      $$ = code_ptr ;
+                      $$ = code_offset ;
 
                       check_var($3) ;
                       code_address($3) ;
@@ -690,10 +758,12 @@ array_loop_front :  FOR LPAREN ID IN ID RPAREN
 /* array_loop */
 statement  :  array_loop_front  statement
               { 
-	        $2[-1].op = code_ptr - $2 + 1 ;
-                BC_clear( code_ptr+3 , code_ptr) ;
-		code_jmp(ALOOP, $2) ;
-		code_ptr++->ptr = (PTR) ZMALLOC(ALOOP_STATE) ;
+		INST *p2 = CDP($2) ;
+
+	        p2[-1].op = code_ptr - p2 + 1 ;
+                BC_clear( code_ptr+2 , code_ptr) ;
+		code_jmp(ALOOP, p2) ;
+		code1(POP_AL) ;
               }
            ;
 
@@ -704,12 +774,12 @@ statement  :  array_loop_front  statement
 */
 
 field   :  FIELD
-           { $$ = code_ptr ; code2(F_PUSHA, $1) ; }
+           { $$ = code_offset ; code2(F_PUSHA, $1) ; }
         |  DOLLAR  D_ID
            { check_var($2) ;
-             $$ = code_ptr ;
+             $$ = code_offset ;
              if ( is_local($2) )
-             { code1(L_PUSHI) ; code1($2->offset) ; }
+             { code2op(L_PUSHI, $2->offset) ; }
              else code2(_PUSHI, $2->stval.cp) ;
 
 	     CODE_FE_PUSHA() ;
@@ -717,11 +787,11 @@ field   :  FIELD
         |  DOLLAR  D_ID mark LBOX  args RBOX
            { 
              if ( $5 > 1 )
-             { code1(A_CAT) ; code1($5) ; }
+             { code2op(A_CAT, $5) ; }
 
              check_array($2) ;
              if( is_local($2) )
-             { code1(LAE_PUSHI) ; code1($2->offset) ; }
+             { code2op(LAE_PUSHI, $2->offset) ; }
              else code2(AE_PUSHI, $2->stval.array) ;
 
 	     CODE_FE_PUSHA()  ;
@@ -765,7 +835,7 @@ split_back  :   RPAREN
                 { code2(_PUSHI, &fs_shadow) ; }
             |   COMMA expr  RPAREN
                 { 
-                  if ( $2 == code_ptr - 2 )
+                  if ( CDP($2) == code_ptr - 2 )
                   {
                     if ( code_ptr[-2].op == _MATCH0 )
                         RE_as_arg() ;
@@ -796,18 +866,20 @@ p_expr : MATCH_FUNC LPAREN expr COMMA re_arg RPAREN
 
 re_arg   :   expr
              {
-               if ( $1 == code_ptr - 2 ) 
+	       INST *p1 = CDP($1) ;
+
+               if ( p1 == code_ptr - 2 ) 
                {
-                 if ( $1->op == _MATCH0 ) RE_as_arg() ;
+                 if ( p1->op == _MATCH0 ) RE_as_arg() ;
                  else
-                 if ( $1->op == _PUSHS )
+                 if ( p1->op == _PUSHS )
                  { CELL *cp = ZMALLOC(CELL) ;
 
                    cp->type = C_STRING ;
-                   cp->ptr = $1[1].ptr ;
+                   cp->ptr = p1[1].ptr ;
                    cast_to_RE(cp) ;
-                   $1->op = _PUSHC ;
-                   $1[1].ptr = (PTR) cp ;
+                   p1->op = _PUSHC ;
+                   p1[1].ptr = (PTR) cp ;
                  } 
                }
              }
@@ -816,13 +888,13 @@ re_arg   :   expr
 
 /* exit_statement */
 statement      :  EXIT   separator
-                    { $$ = code_ptr ;
+                    { $$ = code_offset ;
                       code1(_EXIT0) ; }
                |  EXIT   expr  separator
                     { $$ = $2 ; code1(_EXIT) ; }
 
 return_statement :  RETURN   separator
-                    { $$ = code_ptr ;
+                    { $$ = code_offset ;
                       code1(_RET0) ; }
                |  RETURN   expr  separator
                     { $$ = $2 ; code1(_RET) ; }
@@ -830,7 +902,7 @@ return_statement :  RETURN   separator
 /* getline */
 
 p_expr :  getline      %prec  GETLINE
-          { $$ = code_ptr ;
+          { $$ = code_offset ;
             code2(F_PUSHA, &field[0]) ;
             code1(_PUSHINT) ; code1(0) ; 
             code2(_BUILTIN, bi_getline) ;
@@ -864,7 +936,7 @@ getline :   GETLINE  { getline_flag = 1 ; }
 fvalue  :   lvalue  |  field  ;
 
 getline_file  :  getline  IO_IN
-                 { $$ = code_ptr ;
+                 { $$ = code_offset ;
                    code2(F_PUSHA, field+0) ;
                  }
               |  getline fvalue IO_IN
@@ -877,14 +949,17 @@ getline_file  :  getline  IO_IN
 
 p_expr  :  sub_or_gsub LPAREN re_arg COMMA  expr  sub_back
            {
-             if ( $6 - $5 == 2 && $5->op == _PUSHS  )
+	     INST *p5 = CDP($5) ;
+	     INST *p6 = CDP($6) ;
+
+             if ( p6 - p5 == 2 && p5->op == _PUSHS  )
              { /* cast from STRING to REPL at compile time */
                CELL *cp = ZMALLOC(CELL) ;
                cp->type = C_STRING ;
-               cp->ptr = $5[1].ptr ;
+               cp->ptr = p5[1].ptr ;
                cast_to_REPL(cp) ;
-               $5->op = _PUSHC ;
-               $5[1].ptr = (PTR) cp ;
+               p5->op = _PUSHC ;
+               p5[1].ptr = (PTR) cp ;
              }
              code2(_BUILTIN, $1) ;
              $$ = $3 ;
@@ -897,7 +972,7 @@ sub_or_gsub :  SUB  { $$ = bi_sub ; }
 
 
 sub_back    :   RPAREN    /* substitute into $0  */
-                { $$ = code_ptr ;
+                { $$ = code_offset ;
                   code2(F_PUSHA, &field[0]) ; 
                 }
 
@@ -910,11 +985,10 @@ sub_back    :   RPAREN    /* substitute into $0  */
  *=================================*/
 
 function_def  :  funct_start  block
-                 { resize_fblock($1, code_ptr) ;
-                   code_ptr = main_code_ptr ;
-                   scope = SCOPE_MAIN ;
-                   active_funct = (FBLOCK *) 0 ;
+                 { 
+		   resize_fblock($1) ;
                    restore_ids() ;
+		   switch_code_to_main() ;
                  }
               ;
                    
@@ -923,14 +997,18 @@ funct_start   :  funct_head  LPAREN  f_arglist  RPAREN
                  { eat_nl() ;
                    scope = SCOPE_FUNCT ;
                    active_funct = $1 ;
-                   main_code_ptr = code_ptr ;
+                   *main_code_p = active_code ;
 
-                   if ( $1->nargs = $3 )
+		   $1->nargs = $3 ;
+                   if ( $3 )
                         $1->typev = (char *)
-			memset( zmalloc($3), ST_LOCAL_NONE, SIZE_T($3)) ;
+			memset( zmalloc($3), ST_LOCAL_NONE, $3) ;
                    else $1->typev = (char *) 0 ;
-                   code_ptr = $1->code = 
-                       (INST *) zmalloc(PAGE_SZ*sizeof(INST)) ;
+
+		   code_ptr = code_base =
+                       (INST *) zmalloc(INST_BYTES(PAGESZ));
+		   code_limit = code_base + PAGESZ ;
+		   code_warn = code_limit - CODEWARN ;
                  }
               ;
                   
@@ -943,6 +1021,7 @@ funct_head    :  FUNCTION  ID
                          fbp = $2->stval.fbp = 
                              (FBLOCK *) zmalloc(sizeof(FBLOCK)) ;
                          fbp->name = $2->name ;
+			 fbp->code = (INST*) 0 ;
                    }
                    else
                    {
@@ -989,18 +1068,12 @@ f_args     :  ID
 outside_error :  error
                  {  /* we may have to recover from a bungled function
 		       definition */
-
 		   /* can have local ids, before code scope
 		      changes  */
 		    restore_ids() ;
 
-		    if (scope == SCOPE_FUNCT)
-                    { scope = SCOPE_MAIN ; 
-		      active_funct = (FBLOCK*) 0 ;
-		    }
-
-		    code_ptr = main_code_ptr ;
-                 }
+		    switch_code_to_main() ;
+		 }
 	     ;
 
 /* a call to a user defined function */
@@ -1012,8 +1085,8 @@ p_expr  :  FUNCT_ID mark  call_args
              if ( $3 )  code1($3->arg_num+1) ;
              else  code1(0) ;
                
-             check_fcall($1, scope, active_funct, 
-                         $3, token_lineno) ;
+	     check_fcall($1, scope, code_move_level, active_funct, 
+			 $3, token_lineno) ;
            }
         ;
 
@@ -1037,13 +1110,14 @@ call_args  :   LPAREN   RPAREN
 ca_front   :  LPAREN
               { $$ = (CA_REC *) 0 ; }
            |  ca_front  expr   COMMA
-              { $$ = (CA_REC *) zmalloc(sizeof(CA_REC)) ;
+              { $$ = ZMALLOC(CA_REC) ;
                 $$->link = $1 ;
                 $$->type = CA_EXPR  ;
                 $$->arg_num = $1 ? $1->arg_num+1 : 0 ;
+		$$->call_offset = code_offset ;
               }
            |  ca_front  ID   COMMA
-              { $$ = (CA_REC *) zmalloc(sizeof(CA_REC)) ;
+              { $$ = ZMALLOC(CA_REC) ;
                 $$->link = $1 ;
                 $$->arg_num = $1 ? $1->arg_num+1 : 0 ;
 
@@ -1052,12 +1126,13 @@ ca_front   :  LPAREN
            ;
 
 ca_back    :  expr   RPAREN
-              { $$ = (CA_REC *) zmalloc(sizeof(CA_REC)) ;
+              { $$ = ZMALLOC(CA_REC) ;
                 $$->type = CA_EXPR ;
+		$$->call_offset = code_offset ;
               }
 
            |  ID    RPAREN
-              { $$ = (CA_REC *) zmalloc(sizeof(CA_REC)) ;
+              { $$ = ZMALLOC(CA_REC) ;
                 code_call_id($$, $1) ;
               }
            ;
@@ -1069,27 +1144,20 @@ ca_back    :  expr   RPAREN
 
 /* resize the code for a user function */
 
-static void  resize_fblock( fbp, code_ptr )
+static void  resize_fblock( fbp )
   FBLOCK *fbp ;
-  INST *code_ptr ;
-{ int size ;
+{ 
+  CODEBLOCK *p = ZMALLOC(CODEBLOCK) ;
+  unsigned dummy ;
 
-  code1(_RET0) ; /* make sure there is always a return statement */
+  code2op(_RET0, _HALT) ;
+	/* make sure there is always a return */
 
-#if !SM_DOS
-  if ( dump_code )  
-  { code1(_HALT) ; /*stops da() */
-    add_to_fdump_list(fbp) ;
-  }
-#endif
+  *p = active_code ;
+  fbp->code = code_shrink(p, &dummy) ;
+      /* code_shrink() zfrees p */
 
-  if ( (size = code_ptr - fbp->code) > PAGE_SZ-1 )
-        overflow("function code size", PAGE_SZ ) ;
-
-  /* resize the code */
-  fbp->code = (INST*) zrealloc(fbp->code, PAGE_SZ*sizeof(INST),
-                       size * sizeof(INST) ) ;
-
+  if ( dump_code_flag ) add_to_fdump_list(fbp) ;
 }
 
 
@@ -1112,7 +1180,7 @@ static void  field_A2I()
 
     if ( cp == field  ||
 
-#if  LM_DOS
+#ifdef  MSDOS
 	 SAMESEG(cp,field) &&
 #endif
          cp > NF && cp <= LAST_PFIELD )
@@ -1141,7 +1209,7 @@ static void check_var( p )
       {
         case ST_NONE : /* new id */
             p->type = ST_VAR ;
-            p->stval.cp = new_CELL() ;
+            p->stval.cp = ZMALLOC(CELL) ;
             p->stval.cp->type = C_NOINIT ;
             break ;
 
@@ -1186,24 +1254,11 @@ static  void  check_array(p)
 
 static void code_array(p)
   register SYMTAB *p ;
-{ if ( is_local(p) )
-  { code1(LA_PUSHA) ; code1(p->offset) ; }
+{ 
+  if ( is_local(p) ) code2op(LA_PUSHA, p->offset) ; 
   else  code2(A_PUSHA, p->stval.array) ;
 }
 
-
-static  int  current_offset()
-{
-  switch( scope )
-  { 
-    case  SCOPE_MAIN :  return code_ptr - main_start ;
-    case  SCOPE_BEGIN :  return code_ptr - begin_code.start ;
-    case  SCOPE_END   :  return code_ptr - end_code.start ;
-    case  SCOPE_FUNCT :  return code_ptr - active_funct->code ;
-  }
-  /* can't get here */
-  return 0 ;
-}
 
 /* we've seen an ID as an argument to a user defined function */
 
@@ -1211,6 +1266,10 @@ static void  code_call_id( p, ip )
   register CA_REC *p ;
   register SYMTAB *ip ;
 { static CELL dummy ;
+
+  p->call_offset = code_offset ;
+     /* This always get set now.  So that fcall:relocate_arglist
+	works. */
 
   switch( ip->type )
   {
@@ -1221,8 +1280,7 @@ static void  code_call_id( p, ip )
 
     case  ST_LOCAL_VAR  :
             p->type = CA_EXPR ;
-            code1(L_PUSHI) ;
-            code1(ip->offset) ;
+            code2op(L_PUSHI, ip->offset) ;
             break ;
 
     case  ST_ARRAY  :
@@ -1232,8 +1290,7 @@ static void  code_call_id( p, ip )
 
     case  ST_LOCAL_ARRAY :
             p->type = CA_ARRAY ;
-            code1(LA_PUSHA) ;
-            code1(ip->offset) ;
+            code2op(LA_PUSHA, ip->offset) ;
             break ;
 
     /* not enough info to code it now; it will have to
@@ -1241,17 +1298,14 @@ static void  code_call_id( p, ip )
 
     case  ST_NONE :
             p->type = ST_NONE ;
-            p->call_offset = current_offset() ;
             p->sym_p = ip ;
             code2(_PUSHI, &dummy) ;
             break ;
 
     case  ST_LOCAL_NONE :
             p->type = ST_LOCAL_NONE ;
-            p->call_offset = current_offset() ;
             p->type_p = & active_funct->typev[ip->offset] ;
-            code1(L_PUSHI) ; 
-            code1(ip->offset) ;
+            code2op(L_PUSHI, ip->offset) ;
             break ;
 
   
@@ -1275,17 +1329,45 @@ static void RE_as_arg()
   code2(_PUSHC, cp) ;
 }
 
+/* reset the active_code back to the MAIN block */
+static void
+switch_code_to_main()
+{
+   switch(scope)
+   {
+     case SCOPE_BEGIN :
+	*begin_code_p = active_code ;
+	active_code = *main_code_p ;
+	break ;
 
-int parse()
-{ int yy = yyparse() ;
+     case SCOPE_END :
+	*end_code_p = active_code ;
+	active_code = *main_code_p ;
+	break ;
 
-#if  YYBYACC
-  extern struct yacc_mem *yacc_memp ;
+     case SCOPE_FUNCT :
+	active_code = *main_code_p ;
+	break ;
 
-  yacc_memp++  ; /* puts parser tables in mem pool */
-#endif
+     case SCOPE_MAIN :
+	break ;
+   }
+   active_funct = (FBLOCK*) 0 ;
+   scope = SCOPE_MAIN ;
+}
 
-  if ( resolve_list )  resolve_fcalls() ;
-  return yy ;
+
+void
+parse()
+{ 
+   if ( yyparse() || compile_error_count != 0 ) mawk_exit(2) ;
+
+   scan_cleanup() ;
+   set_code() ; 
+   /* code must be set before call to resolve_fcalls() */
+   if ( resolve_list )  resolve_fcalls() ;
+
+   if ( compile_error_count != 0 ) mawk_exit(2) ;
+   if ( dump_code_flag ) { dump_code() ; mawk_exit(0) ; }
 }
 

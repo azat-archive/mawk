@@ -12,6 +12,12 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log: types.h,v $
+ * Revision 1.3  1993/07/15  23:56:18  mike
+ * general cleanup
+ *
+ * Revision 1.2  1993/07/04  12:52:15  mike
+ * start on autoconfig changes
+ *
  * Revision 5.1  1991/12/05  07:59:39  brennan
  * 1.1 pre-release
  *
@@ -22,12 +28,6 @@ the GNU General Public License, version 2, 1991.
 
 #ifndef  MAWK_TYPES_H
 #define  MAWK_TYPES_H
-
-#if     HAVE_VOID_PTR
-typedef  void *PTR ;
-#else
-typedef  char *PTR ;
-#endif
 
 #include  "sizes.h"
 
@@ -92,7 +92,7 @@ double  dval ;
 /* all builtins are passed the evaluation stack pointer and
    return its new value, here is the type */
 
-#if     HAVE_PROTOS
+#ifndef  NO_PROTOS
 typedef CELL *(*PF_CP)(CELL *) ;
 #else
 typedef CELL *(*PF_CP)() ;
@@ -104,11 +104,4 @@ int  op ;
 PTR  ptr ;
 }  INST ;
 
-
-/* how we give parser table memory to zmalloc */
-struct yacc_mem {
-PTR mem ;
-short zblocks ;
-} ;
-
-#endif
+#endif  /* MAWK_TYPES_H */

@@ -22,7 +22,7 @@ DESCRIPTION
      implements the AWK language as defined in Aho, Kernighan and
      Weinberger,  _T_h_e  _A_W_K  _P_r_o_g_r_a_m_m_i_n_g  _L_a_n_g_u_a_g_e, Addison-Wesley
      Publishing, 1988.  (Hereafter referred to as the AWK  book.)
-     mawk conforms to the Posix 1003.2 (draft 11.2) definition of
+     mawk conforms to the Posix 1003.2 (draft 11.3) definition of
      the AWK language which contains a few features not described
      in the AWK book,  and mawk provides a small number of exten-
      sions.
@@ -52,7 +52,7 @@ OPTIONS
 
      The above options will be available with any Posix  compati-
      ble  implementation  of  AWK,  and  implementation  specific
-     options are prefaced with -W.  mawk provides four:
+     options are prefaced with -W.  mawk provides six:
 
      -W version     mawk writes  its  version  and  copyright  to
                     stdout  and  compiled  limits  to  stderr and
@@ -60,7 +60,7 @@ OPTIONS
 
 
 
-Version 1.1.2       Last change: Jul 13 1992                    1
+Version 1.2         Last change: Dec 22 1994                    1
 
 
 
@@ -73,7 +73,18 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
      -W dump        writes  an  assembler  like  listing  of  the
                     internal  representation  of  the  program to
-                    stderr.
+                    stdout and exits 0  (on  successful  compila-
+                    tion).
+
+     -W interactive sets unbuffered writes  to  stdout  and  line
+                    buffered  reads  from  stdin.   Records  from
+                    stdin are lines regardless of  the  value  of
+                    RS.
+
+     -W exec _f_i_l_e   Program text is read from _f_i_l_e  and  this  is
+                    the  last option. Useful on systems that sup-
+                    port the #!  "magic  number"  convention  for
+                    executable scripts.
 
      -W sprintf=_n_u_m adjusts the size of mawk's  internal  sprintf
                     buffer  to  _n_u_m bytes.  More than rare use of
@@ -81,6 +92,10 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
                     piled.
 
      -W posix_space forces mawk not to consider '\n' to be space.
+
+     The short forms -W[vdiesp] are recognized and on  some  sys-
+     tems  -We  is mandatory to avoid command line length limita-
+     tions.
 
 THE AWK LANGUAGE
   1. Program structure
@@ -108,6 +123,20 @@ THE AWK LANGUAGE
      ||,  do,  else, the right parenthesis of an if, while or for
      statement, and the right parenthesis of a  function  defini-
      tion.   A comment starts with # and extends to, but does not
+
+
+
+Version 1.2         Last change: Dec 22 1994                    2
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
      include the end of line.
 
      The following statements control program flow inside blocks.
@@ -121,21 +150,6 @@ THE AWK LANGUAGE
           do _s_t_a_t_e_m_e_n_t while ( _e_x_p_r )
 
           for ( _o_p_t__e_x_p_r ; _o_p_t__e_x_p_r ; _o_p_t__e_x_p_r ) _s_t_a_t_e_m_e_n_t
-
-
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                    2
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
 
           for ( _v_a_r in _a_r_r_a_y ) _s_t_a_t_e_m_e_n_t
 
@@ -175,6 +189,20 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
      There are really three basic data types; the third is _n_u_m_b_e_r
      _a_n_d _s_t_r_i_n_g which has both a numeric value and a string value
+
+
+
+Version 1.2         Last change: Dec 22 1994                    3
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
      at  the  same  time.   User  defined  variables  come   into
      existence when first referenced and are initialized to _n_u_l_l,
      a number and string value which  has  numeric  value  0  and
@@ -189,21 +217,7 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
           y = x + 2  ;  z = x  "hello"
 
      The value stored in variable y will be typed numeric.  If  x
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                    3
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
-     is  not  numeric,  the  value  taken  from x is converted to
+     is  not  numeric,  the  value  read  from  x is converted to
      numeric before it is added to 2 and stored in y.  The  value
      stored  in variable z will be typed string, and the value of
      x will be converted to string if necessary and  concatenated
@@ -241,6 +255,20 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
      is an AWK expression that evaluates to 1 if  _e_x_p_r  "matches"
      _r,  which means a substring of _e_x_p_r is in the set of strings
      defined by _r.  With no match the expression evaluates to  0;
+
+
+
+Version 1.2         Last change: Dec 22 1994                    4
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
      replacing ~ with the "not match" operator, !~ , reverses the
      meaning.  As  pattern-action pairs,
 
@@ -255,20 +283,6 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
      AWK uses extended regular expressions as with _e_g_r_e_p(1).  The
      regular  expression metacharacters, i.e., those with special
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                    4
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
      meaning in regular expressions are
 
            ^ $ . [ ] | ( ) * + ?
@@ -277,7 +291,7 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
           _c            matches any non-metacharacter _c.
 
-          "\_c"         matches a character defined  by  the  same
+          \_c           matches a character defined  by  the  same
                        escape  sequences used in string constants
                        or the literal character _c if \_c is not an
                        escape sequence.
@@ -307,6 +321,20 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
           _r+           matches _r repeated one or more times.
 
+
+
+
+Version 1.2         Last change: Dec 22 1994                    5
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
           _r?           matches _r zero or once.
 
           (_r)          matches _r, providing grouping.
@@ -320,23 +348,9 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
           /^[-+]?([0-9]+\.?|\.[0-9])[0-9]*([eE][-+]?[0-9]+)?$/
 
      are matched by AWK identifiers  and  AWK  numeric  constants
-     respectively.    Note  that  .  has  to  be  escaped  to  be
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                    5
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
-     recognized as a decimal point, and that  metacharacters  are
-     not special inside character classes.
+     respectively.   Note  that  . has to be escaped to be recog-
+     nized as a decimal point, and that  metacharacters  are  not
+     special inside character classes.
 
      Any expression can be used on the right hand side of  the  ~
      or !~ operators or passed to a built-in that expects a regu-
@@ -373,6 +387,20 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
      Data input stored in fields is  string,  unless  the  entire
      field  has  numeric  form  and  then  the type is number and
+
+
+
+Version 1.2         Last change: Dec 22 1994                    6
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
      string.  For example,
 
           echo 24 24E |
@@ -386,25 +414,11 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
   5. Expressions and operators
      The expression syntax is similar to C.  Primary  expressions
      are  numeric constants, string constants, variables, fields,
-     arrays and functions. The identifier for a  variable,  array
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                    6
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
-     or  function can be a sequence of letters, digits and under-
-     scores, that does not start with a digit.  Variables are not
-     declared;  they exist when first referenced and are initial-
-     ized to _n_u_l_l.
+     arrays and function calls. The identifier  for  a  variable,
+     array  or  function can be a sequence of letters, digits and
+     underscores, that does not start with  a  digit.   Variables
+     are  not  declared; they exist when first referenced and are
+     initialized to _n_u_l_l.
 
      New expressions are composed with the following operators in
      order of increasing precedence.
@@ -439,24 +453,10 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
      sion, _e_x_p_r in _a_r_r_a_y evaluates to 1  if  _a_r_r_a_y[_e_x_p_r]  exists,
      else to 0.
 
-     There is a form of the for statement that  loops  over  each
-     index of an array.
-
-          for ( _v_a_r in _a_r_r_a_y ) _s_t_a_t_e_m_e_n_t
-
-     sets _v_a_r to each index of _a_r_r_a_y and executes _s_t_a_t_e_m_e_n_t.  The
-     order  that  _v_a_r  transverses  the  indices  of _a_r_r_a_y is not
-     defined.
-
-     The statement, delete _a_r_r_a_y[_e_x_p_r], causes _a_r_r_a_y[_e_x_p_r] not to
-     exist.
-
-     Multidimensional arrays are synthesized  with  concatenation
-     using  the  built-in variable SUBSEP.  _a_r_r_a_y[_e_x_p_r1,_e_x_p_r2] is
 
 
 
-Version 1.1.2       Last change: Jul 13 1992                    7
+Version 1.2         Last change: Dec 22 1994                    7
 
 
 
@@ -467,6 +467,21 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
 
 
+     There is a form of the for statement that  loops  over  each
+     index of an array.
+
+          for ( _v_a_r in _a_r_r_a_y ) _s_t_a_t_e_m_e_n_t
+
+     sets _v_a_r to each index of _a_r_r_a_y and executes _s_t_a_t_e_m_e_n_t.  The
+     order  that  _v_a_r  transverses  the  indices  of _a_r_r_a_y is not
+     defined.
+
+     The statement, delete _a_r_r_a_y[_e_x_p_r], causes _a_r_r_a_y[_e_x_p_r] not to
+     exist.   mawk  supports  an  extension,  delete _a_r_r_a_y, which
+     deletes all elements of _a_r_r_a_y.
+
+     Multidimensional arrays are synthesized  with  concatenation
+     using  the  built-in variable SUBSEP.  _a_r_r_a_y[_e_x_p_r1,_e_x_p_r2] is
      equivalent to _a_r_r_a_y[_e_x_p_r1 SUBSEP _e_x_p_r2].  Testing for a mul-
      tidimensional element uses a parenthesized index, such as
 
@@ -504,6 +519,20 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
                     "%.6g".
 
           OFS       inserted between fields on output,  initially
+
+
+
+Version 1.2         Last change: Dec 22 1994                    8
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
                     = " ".
 
           ORS       terminates each record on output, initially =
@@ -519,20 +548,6 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
           SUBSEP    used to build multiple array subscripts, ini-
                     tially = "\034".
 
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                    8
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
   8. Built-in functions
      String functions
 
@@ -542,7 +557,8 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
                _s.  The number of replacements is returned.  If  _t
                is  omitted,  $0 is used.  An & in the replacement
                string _s is replaced by the matched  substring  of
-               _t.  \& puts a literal & in the replacement string.
+               _t.   \& and \\ put  literal & and \, respectively,
+               in the replacement string.
 
           index(_s,_t)
                If _t is a substring of _s, then the position  where
@@ -569,6 +585,20 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
                below  for  more  detail.   If _r is omitted, FS is
                used.
 
+
+
+
+Version 1.2         Last change: Dec 22 1994                    9
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
           sprintf(_f_o_r_m_a_t,_e_x_p_r-_l_i_s_t)
                Returns  a  string  constructed   from   _e_x_p_r-_l_i_s_t
                according  to  _f_o_r_m_a_t.   See  the  description  of
@@ -585,20 +615,6 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
           tolower(_s)
                Returns a copy of _s with all upper case characters
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                    9
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
                converted to lower case.
 
           toupper(_s)
@@ -635,6 +651,20 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
      There are two output statements, print and printf.
 
           print
+
+
+
+Version 1.2         Last change: Dec 22 1994                   10
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
                writes $0  ORS to standard output.
 
           print _e_x_p_r1, _e_x_p_r2, ..., _e_x_p_rn
@@ -651,20 +681,6 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
      The argument list to  print  or  printf  can  optionally  be
      enclosed  in  parentheses.  Print formats numbers using OFMT
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                   10
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
      or "%d" for exact integers.  "%c" with  a  numeric  argument
      prints  the  corresponding  8  bit  character, with a string
      argument it prints the first character of the  string.   The
@@ -674,7 +690,9 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
      only once, subsequent redirections  append  to  the  already
      open  stream.   By  convention, mawk associates the filename
      "/dev/stderr" with stderr which allows print and  printf  to
-     be redirected to stderr.
+     be  redirected  to  stderr.   mawk  also  associates "-" and
+     "/dev/stdout" with  stdin  and  stdout  which  allows  these
+     streams to be passed to functions.
 
      The input function getline has the following variations.
 
@@ -699,28 +717,10 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
            _c_o_m_m_a_n_d | getline _v_a_r
                pipes a record from _c_o_m_m_a_n_d into _v_a_r.
 
-     Getline returns 0 on end-of-file, -1 on error, otherwise 1.
-
-     Commands on the end of pipes are executed by /bin/sh.
-
-     The function close(_e_x_p_r) closes the file or pipe  associated
-     with  _e_x_p_r.   Close  returns  0 if _e_x_p_r is an open file, the
-     exit status if _e_x_p_r is a piped command,  and  -1  otherwise.
-     Close()  is  used to reread a file or command, make sure the
-     other end of an output pipe is  finished  or  conserve  file
-     resources.
-
-     The function system(_e_x_p_r) uses /bin/sh to execute  _e_x_p_r  and
-     returns  the  exit status of the command _e_x_p_r.  Changes made
-     to the ENVIRON array are not  passed  to  commands  executed
-     with system or pipes.
-
-  10. User defined functions
-     The syntax for a user defined function is
 
 
 
-Version 1.1.2       Last change: Jul 13 1992                   11
+Version 1.2         Last change: Dec 22 1994                   11
 
 
 
@@ -730,6 +730,30 @@ Version 1.1.2       Last change: Jul 13 1992                   11
 MAWK(1)                   USER COMMANDS                   MAWK(1)
 
 
+
+     Getline returns 0 on end-of-file, -1 on error, otherwise 1.
+
+     Commands on the end of pipes are executed by /bin/sh.
+
+     The function close(_e_x_p_r) closes the file or pipe  associated
+     with  _e_x_p_r.   Close  returns  0 if _e_x_p_r is an open file, the
+     exit status if _e_x_p_r is a piped command,  and  -1  otherwise.
+     Close  is  used  to  reread a file or command, make sure the
+     other end of an output pipe is  finished  or  conserve  file
+     resources.
+
+     The function fflush(_e_x_p_r) flushes the output  file  or  pipe
+     associated  with  _e_x_p_r.  Fflush returns 0 if _e_x_p_r is an open
+     output stream else -1.  Fflush without an  argument  flushes
+     stdout.
+
+     The function system(_e_x_p_r) uses /bin/sh to execute  _e_x_p_r  and
+     returns  the  exit status of the command _e_x_p_r.  Changes made
+     to the ENVIRON array are not  passed  to  commands  executed
+     with system or pipes.
+
+  10. User defined functions
+     The syntax for a user defined function is
 
           function name( _a_r_g_s ) { _s_t_a_t_e_m_e_n_t_s }
 
@@ -759,6 +783,20 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
   11. Splitting strings, records and files
      Awk programs use the same algorithm to  split  strings  into
      arrays  with  split(),  and records into fields on FS.  mawk
+
+
+
+Version 1.2         Last change: Dec 22 1994                   12
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
      uses essentially the same  algorithm  to  split  files  into
      records on RS.
 
@@ -783,20 +821,6 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
                returns 0 and _A  is  set  empty.   Otherwise,  all
                non-overlapping,  non-null  and longest matches of
                _s_e_p in _e_x_p_r, separate _e_x_p_r into fields  which  are
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                   12
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
                loaded  into  _A.   The  fields are placed in A[1],
                A[2], ..., A[n] and split() returns n, the  number
                of fields which is the number of matches plus one.
@@ -818,9 +842,27 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
      RS = " " is not special.
 
+     If FS = "", then mawk  breaks  the  record  into  individual
+     characters, and, similarly, split(_s,_A,"") places the indivi-
+     dual characters of _s into _A.
+
   12. Multi-line records
      Since mawk interprets RS as a regular expression, multi-line
      records  are  easy.  Setting RS = "\n\n+", makes one or more
+
+
+
+Version 1.2         Last change: Dec 22 1994                   13
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
      blank lines separate records.  If FS = "  "  (the  default),
      then single newlines, by the rules for <SPACE> above, become
      space and single newlines are field separators.
@@ -849,20 +891,6 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
      First  ARGC is set to the total number of command line argu-
      ments passed to the execution phase of the program.  ARGV[0]
      is  set  the  name  of  the  AWK interpreter and ARGV[1] ...
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                   13
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
      ARGV[ARGC-1] holds  the  remaining  command  line  arguments
      exclusive of options and program source.  For example with
 
@@ -885,8 +913,22 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
      skipped; if it is an assignment argument, the assignment  to
      _v_a_r  takes  place  and  i  skips  to the next argument; else
      ARGV[i] is opened for input.  If it fails to open, execution
-     terminates with exit code 1.  If no command line argument is
+     terminates with exit code 2.  If no command line argument is
      a file argument, then input comes from stdin.  Getline in  a
+
+
+
+Version 1.2         Last change: Dec 22 1994                   14
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
      BEGIN  action  opens  input.  "-" as a file argument denotes
      stdin.
 
@@ -914,21 +956,7 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
      Program flow at the _p_a_t_t_e_r_n {_a_c_t_i_o_n} level  can  be  changed
      with the
 
-          next   and
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                   14
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
+          next
           exit  _o_p_t__e_x_p_r
 
      statements.  A next statement causes the next  input  record
@@ -953,6 +981,19 @@ EXAMPLES
           END{ print NR, words, chars }
 
      3. count the number of unique "real words".
+
+
+
+Version 1.2         Last change: Dec 22 1994                   15
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
 
           BEGIN { FS = "[^A-Za-z]+" }
 
@@ -981,20 +1022,6 @@ EXAMPLES
           }
 
           #insertion sort of A[1..n]
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                   15
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
           function isort( A, n,    i, j, hold)
           {
             for( i = 2 ; i <= n ; i++)
@@ -1009,7 +1036,7 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
 
 COMPATIBILITY ISSUES
-     The Posix 1003.2(draft 11.2) definition of the AWK  language
+     The Posix 1003.2(draft 11.3) definition of the AWK  language
      is  AWK  as  described in the AWK book with a few extensions
      that appeared in SystemVR4 nawk. The extensions are:
 
@@ -1020,8 +1047,23 @@ COMPATIBILITY ISSUES
           ANSI  C  conversion  specifications  for  printf()  and
           sprintf().
 
+
+
+
+Version 1.2         Last change: Dec 22 1994                   16
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
           New command options:  -v var=value, multiple -f options
           and implementation options as arguments to -W.
+
 
      Posix AWK is oriented to operate on files a line at a  time.
      RS can be changed from "\n" to another single character, but
@@ -1048,19 +1090,6 @@ COMPATIBILITY ISSUES
             print cnt
           }
 
-
-
-Version 1.1.2       Last change: Jul 13 1992                   16
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
      counts the number of unique words  by  making  each  word  a
      record.   On  moderate  size  files,  mawk executes twice as
      fast, because of the simplified inner loop.
@@ -1084,6 +1113,20 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
      With mawk, the following are all equivalent,
 
+
+
+
+Version 1.2         Last change: Dec 22 1994                   17
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
           x ~ /a\+b/    x ~ "a\+b"     x ~ "a\\+b"
 
      The strings get scanned twice, once as string  and  once  as
@@ -1095,9 +1138,19 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
      must run under a variety of awks to use  the  more  portable
      but less readable, double escape.
 
-     Posix AWK does not recognize "/dev/stderr" or \x hex  escape
-     sequences in strings.  Unlike ANSI C, mawk limits the number
-     of digits that follows \x to two.
+     Posix AWK does not recognize "/dev/std{out,err}" or  \x  hex
+     escape sequences in strings.  Unlike ANSI C, mawk limits the
+     number of digits that follows  \x  to  two  as  the  current
+     implementation only supports 8 bit characters.  The built-in
+     fflush first appeared in a recent (1993) AT&T  awk  released
+     to netlib, and is not part of the posix standard.  Aggregate
+     deletion with delete _a_r_r_a_y is not part of  the  posix  stan-
+     dard.
+
+     Posix explicitly leaves the behavior of FS =  ""  undefined,
+     and  mentions splitting the record into characters as a pos-
+     sible interpretation, but currently this use is not portable
+     across implementations.
 
      Finally, here is how mawk handles exceptional cases not dis-
      cussed  in the AWK book or the Posix draft.  It is unsafe to
@@ -1113,20 +1166,6 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
 
           Every string, including the empty string,  matches  the
           empty  string  at  the front so, s ~ // and s ~ "", are
-
-
-
-Version 1.1.2       Last change: Jul 13 1992                   17
-
-
-
-
-
-
-MAWK(1)                   USER COMMANDS                   MAWK(1)
-
-
-
           always 1 as is match(s, //) and match(s, "").  The last
           two set RLENGTH to 0.
 
@@ -1140,6 +1179,20 @@ MAWK(1)                   USER COMMANDS                   MAWK(1)
           If getline encounters end of file, getline var,  leaves
           var unchanged.  Similarly, on entry to the END actions,
           $0, the fields and NF have their value  unaltered  from
+
+
+
+Version 1.2         Last change: Dec 22 1994                   18
+
+
+
+
+
+
+MAWK(1)                   USER COMMANDS                   MAWK(1)
+
+
+
           the last record.
 
 SEE ALSO
@@ -1182,7 +1235,20 @@ AUTHOR
 
 
 
-Version 1.1.2       Last change: Jul 13 1992                   18
+
+
+
+
+
+
+
+
+
+
+
+
+
+Version 1.2         Last change: Dec 22 1994                   19
 
 
 

@@ -1,3 +1,19 @@
+
+Version 1.2:
+
+   I no longer have a dos machine so must count on others to verify that
+   things work under msdos.
+
+   1.2 has been ported to TCC, but not MSC (I wouldn't expect this to
+   be too hard).
+
+   You now have to compile large model.  Code will no longer fit in
+   64K and code ptr and data ptrs must be both fit in a void* hence
+   large model required.
+
+   Installation instructions are in file INSTALL.
+
+
 Notes for 1.1.2d
 
   Three changes specific to DOS.
@@ -8,7 +24,7 @@ Notes for 1.1.2d
 
 	  '{ print 2^30 }'
 
-           1073741824  (instead of  ).
+           1073741824  
 
   (2) Large model uses 8K as opposed to 4K I/O buffers.
 
@@ -117,61 +133,4 @@ control break and the keyboard hardware will generate an interrupt and
 the operating system will service that interrupt and terminate your 
 program, but unfortunately MsDOS does not have such a feature.  
 
-
-how to make mawk under MsDOS
----------------------------
-
-   Rename Makefile Makefile.unx
-   Move or copy msdos\dosexec.c to source directory
-
-TurboC: Move msdos\Makefile.tcc to Makefile
-	copy msdos\tcc_dos.h to config.h
-
-MSC:    Move msdos\Makefile.MSC to Makefile
-
-Assuming you keep the same directory structure:
-
-1)  If you want a Unix style command line for mawk, you'll need to
-    write a function called reargv(int *, char ***) which passes
-    mawk the modified argc and argv via reargv(&argc,&argv).
-    Put it in a file called reargv.c
-
-    The supplied reargv.c works with POLYSHELL by Polytron; for a
-    different shell you could use it as an example.
-    (I've looked at the MKS documentation and writing reargv() for
-     MKS ksh would be easy.  (contributions welcome)).
-
-2)  TurboC look at comments in Makefile.  Remember to remove
-    .obj between make of bmawk.exe and mawk.exe.
-
-
-3) Using MSC , move Makefile.MSC to mawk directory and
-   run nmake -- makes both small and large model
-
-
-4)  YACC --
-Take some care that you don't trash parse.[ch] unless you're
-sure you want to remake them.
-(If using a make, also check that the date of parse.c is
-newer than parse.y or parse2.xc)
-If you don't change parse.y, the parse.c and parse.h provided
-were made with Berkeley yacc and can be redistributed and you
-don't need a yacc.  The executables look bigger than before,
-but I reuse the parser table memory which returns 15K to the
-mem pool.
-
-5)  The same test suite that is run on mawk under Unix can now
-be run under DOS.  The same anonymous reviewer wrote  batch
-files mawktest.bat and fpe_test.bat.
-
-
-
-POSSIBLE PROBLEMS:
-
-1) Hopefully you can compile for speed and still fit the code
-in 64K.  If not set your compiler switches to compile for 
-optimized (ie small) size.
-
-2)  MSC 5.1 requires /Os and /Gs for small model to fit in 64K.
-Reports indicate this is also true with 6.0.
 

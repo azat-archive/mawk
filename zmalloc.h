@@ -11,6 +11,12 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: zmalloc.h,v $
+ * Revision 1.2  1993/07/04  12:52:22  mike
+ * start on autoconfig changes
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:23  mike
+ * move source to cvs
+ *
  * Revision 5.1  1991/12/05  07:59:41  brennan
  * 1.1 pre-release
  *
@@ -21,11 +27,7 @@ the GNU General Public License, version 2, 1991.
 #ifndef  ZMALLOC_H
 #define  ZMALLOC_H
 
-#if ! HAVE_STDLIB_H
-char *malloc() , *realloc() ;
-void free() ;
-#endif
-
+#include "nstd.h"
 
 PTR  PROTO( bmalloc, (unsigned) ) ;
 void PROTO( bfree, (PTR, unsigned) ) ;

@@ -1,3 +1,7 @@
+The following worked for mawk1.1.x.
+It has not been updated for mawk1.2(beta)
+-------------------------------------------------------------
+
 This is a quick mawk port to the atariST/StE/TT using
 gcc + libs @ Patchlevel 73
 

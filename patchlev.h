@@ -1,4 +1,5 @@
-/* mawk 1.1 */
-#define  PATCHLEVEL	4
-#define  PATCH_STRING	".4"  
-#define  DATE_STRING    "May 1993"
+/* mawk 1.2 */
+#define  PATCHLEVEL	2
+#define  PATCH_STRING	".2"
+#define  DATE_STRING    "Jan 1996"
+#define  MAWK_ID	"@(#)mawk 1.2.2"

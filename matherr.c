@@ -11,142 +11,204 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: matherr.c,v $
- * Revision 5.2  1992/03/31  16:14:44  brennan
+ * Revision 1.6  1994/12/18  20:53:43  mike
+ * check NetBSD mathlib defines
+ *
+ * Revision 1.5  1994/12/14  14:48:57  mike
+ * add <siginfo.h> include -- sysV doesn't have it inside <signal.h>
+ * restore #else that had been removed
+ *
+ * Revision 1.4  1994/10/11  00:36:17  mike
+ * systemVr4 siginfo
+ *
+ * Revision 1.3  1993/07/17  13:23:04  mike
+ * indent and general code cleanup
+ *
+ * Revision 1.2	 1993/07/04  12:52:03  mike
+ * start on autoconfig changes
+ *
+ * Revision 5.2	 1992/03/31  16:14:44  brennan
  * patch2:
  * TURN_ON_FPE_TRAPS() macro
  * USE_IEEEFP_H macro
  *
- * Revision 5.1  91/12/05  07:56:18  brennan
+ * Revision 5.1	 91/12/05  07:56:18  brennan
  * 1.1 pre-release
- * 
+ *
 */
 
 #include  "mawk.h"
 #include  <math.h>
 
-#ifdef  USE_IEEEFP_H
+/* Sets up NetBSD 1.0A for ieee floating point */
+#if defined(_LIB_VERSION_TYPE) && defined(_LIB_VERSION) && defined(_IEEE_)
+_LIB_VERSION_TYPE _LIB_VERSION = _IEEE_;
+#endif
+
+#ifdef	USE_IEEEFP_H
 #include <ieeefp.h>
 #endif
 
-#if   FPE_TRAPS_ON
+#ifndef	 TURN_OFF_FPE_TRAPS
+#define	 TURN_OFF_FPE_TRAPS()	/* nothing */
+#endif
+
+#ifndef	 TURN_ON_FPE_TRAPS
+#define	 TURN_ON_FPE_TRAPS()	/* nothing */
+#endif
+
+#ifdef  SV_SIGINFO
+#include <siginfo.h>
+#define  FPE_ZERODIVIDE  FPE_FLTDIV
+#define  FPE_OVERFLOW    FPE_FLTOVF
+#endif
+
+#ifdef	 FPE_TRAPS_ON
 #include <signal.h>
 
 /* machine dependent changes might be needed here */
 
-static void  fpe_catch( signal, why)
-  int signal, why ;
+#ifdef   SV_SIGINFO
+static void
+fpe_catch(signal, sip)
+   int signal; 
+   siginfo_t *sip ;
 {
+   int why = sip->si_code ;
 
-#if   NOINFO_SIGFPE
- /* some systems give no hook to find out what the exception
-    was -- stuff like this is why people still use fortran 
-
-    If this fits, #define NOINFO_SIGFPE 1 in  your config.h
-*/
-  rt_error("floating point exception, probably overflow") ;
 #else
 
-  switch(why)
-  {
-    case FPE_ZERODIVIDE :
-       rt_error("division by zero") ;
-
-    case FPE_OVERFLOW  :
-       rt_error("floating point overflow") ;
-
-    default :
-      rt_error("floating point exception") ;
-  }
-#endif  
-}
-
-void   fpe_init()
-{ 
-  TURN_ON_FPE_TRAPS() ;
-  (void) signal(SIGFPE, fpe_catch) ; 
-}
-
-#else  /* FPE_TRAPS_ON==0 */
-
-void  fpe_init()
+static void
+fpe_catch(signal, why)
+   int signal, why ;
 {
-  TURN_OFF_FPE_TRAPS() ;
+#endif /* SV_SIGINFO  */
+
+#if   NOINFO_SIGFPE
+   rt_error("floating point exception, probably overflow") ;
+   /* does not return */
+#else
+
+   switch (why)
+   {
+      case FPE_ZERODIVIDE:
+	 rt_error("division by zero") ;
+
+      case FPE_OVERFLOW:
+	 rt_error("floating point overflow") ;
+
+      default:
+	 rt_error("floating point exception") ;
+   }
+#endif /* noinfo_sigfpe */
+}
+
+void
+fpe_init()
+{
+   TURN_ON_FPE_TRAPS() ;
+
+#ifndef  SV_SIGINFO
+   signal(SIGFPE, fpe_catch) ;
+
+#else
+   { struct sigaction x ;
+
+     memset(&x, 0, sizeof(x)) ;
+     x.sa_handler = fpe_catch ;
+     x.sa_flags = SA_SIGINFO ;
+
+     sigaction(SIGFPE, &x, (struct sigaction*)0) ;
+   }
+#endif
+}
+
+#else /* FPE_TRAPS not defined */
+
+void
+fpe_init()
+{
+   TURN_OFF_FPE_TRAPS() ;
 }
 #endif
 
-#if  HAVE_MATHERR
+#ifndef	 NO_MATHERR
 
-#if  ! FPE_TRAPS_ON
+#ifndef	 FPE_TRAPS_ON
 
 /* If we are not trapping math errors, we will shutup the library calls
 */
 
-int  matherr( e )
-  struct exception *e ;
-{ return 1 ; } 
-
-#else   /* print error message and exit */
-
-int matherr( e )
-  struct exception  *e ;
-{ char *error ;
-
-  switch( e->type )
-  {
-    case  DOMAIN :
-    case  SING :
-            error = "domain error" ;
-            break ;
-
-    case  OVERFLOW :
-            error = "overflow" ;
-            break ;
-
-    case  TLOSS :
-    case  PLOSS :
-            error = "loss of significance" ;
-            break ;
-
-    case  UNDERFLOW :
-            e->retval = 0.0 ;
-            return  1 ;  /* ignore it */
-  }
-
-  if ( strcmp(e->name, "atan2") == 0 )
-      rt_error("atan2(%g,%g) : %s" ,
-         e->arg1, e->arg2, error ) ;
-  else
-      rt_error("%s(%g) : %s" , e->name, e->arg1, error) ;
-
-  /* won't get here */
-  return 0 ;
+int
+matherr(e)
+   struct exception *e ;
+{
+   return 1 ;
 }
-#endif   /* FPE_TRAPS */
 
-#endif   /*  HAVE_MATHERR */
+#else /* print error message and exit */
+
+int
+matherr(e)
+   struct exception *e ;
+{
+   char *error ;
+
+   switch (e->type)
+   {
+      case DOMAIN:
+      case SING:
+	 error = "domain error" ;
+	 break ;
+
+      case OVERFLOW:
+	 error = "overflow" ;
+	 break ;
+
+      case TLOSS:
+      case PLOSS:
+	 error = "loss of significance" ;
+	 break ;
+
+      case UNDERFLOW:
+	 e->retval = 0.0 ;
+	 return 1 ;		 /* ignore it */
+   }
+
+   if (strcmp(e->name, "atan2") == 0)  rt_error("atan2(%g,%g) : %s",
+	       e->arg1, e->arg2, error) ;
+   else	 rt_error("%s(%g) : %s", e->name, e->arg1, error) ;
+
+   /* won't get here */
+   return 0 ;
+}
+#endif /* FPE_TRAPS_ON */
+
+#endif /*  ! no matherr */
 
 
 /* this is how one gets the libm calls to do the right
 thing on bsd43_vax
 */
 
-#ifdef   BSD43_VAX
+#ifdef	 BSD43_VAX
 
 #include <errno.h>
 
-double infnan( arg )
-  int arg ;
+double	infnan(arg)
+   int arg ;
 {
-  switch(arg)
-  {
-    case  ERANGE : errno = ERANGE ; return HUGE ;
-    case -ERANGE : errno = EDOM ; return -HUGE ;
-    default :  errno = EDOM ; 
-  }
-  return 0.0 ;
+   switch (arg)
+   {
+	 case  ERANGE : errno = ERANGE ; return HUGE ;
+	 case -ERANGE : errno = EDOM ; return -HUGE ;
+      default:
+	 errno = EDOM ;
+   }
+   return 0.0 ;
 }
 
-#endif  /* BSD43_VAX */
+#endif /* BSD43_VAX */
 
 /* This routine is for XENIX-68K 2.3A.
     Error check routine to be called after fp arithmetic.
@@ -164,25 +226,20 @@ double infnan( arg )
 void
 fpcheck()
 {
-	register int fperrval ;
-	char *errdesc ;
+   register int fperrval ;
+   char *errdesc ;
 
-	if ((fperrval = iserr()) == 0)
-		return ;	/* no error */
+   if ((fperrval = iserr()) == 0)
+      return ;			 /* no error */
 
-	errdesc = (char *) 0 ;
+   errdesc = (char *) 0 ;
 
-	if (fperrval & INFNAN)
-		errdesc = "arg is infinity or NAN" ;
-	else if (fperrval & ZERODIV)
-		errdesc = "division by zero" ;
-	else if (fperrval & OVFLOW)
-		errdesc = "overflow" ;
-	else if (fperrval & UFLOW)
-		;		/* ignored */
+   if (fperrval & INFNAN)  errdesc = "arg is infinity or NAN" ;
+   else if (fperrval & ZERODIV)	 errdesc = "division by zero" ;
+   else if (fperrval & OVFLOW)	errdesc = "overflow" ;
+   else if (fperrval & UFLOW) ; /* ignored */
 
-	if (errdesc)
-		rt_error("%s", errdesc) ;
+   if (errdesc)	 rt_error("%s", errdesc) ;
 }
 
 #endif

@@ -11,6 +11,12 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: rexp.h,v $
+ * Revision 1.2  1993/07/23  13:21:35  mike
+ * cleanup rexp code
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:27  mike
+ * move source to cvs
+ *
  * Revision 3.6  1992/01/21  17:31:45  brennan
  * moved ison() macro out of rexp[23].c
  *
@@ -43,40 +49,12 @@ the GNU General Public License, version 2, 1991.
 #ifndef  REXP_H
 #define  REXP_H
 
-#ifdef THINK_C
-#define MAWK		/* THINK C doesn't allow compile-time definitions */
-#define SIZE_T(x) (size_t)(x)
-#endif
-
-#ifndef SIZE_T
-#define SIZE_T(x) (x)
-#endif
-
-#include  <stdio.h>
+#include "nstd.h"
+#include <stdio.h>
 #include  <setjmp.h>
 
-char *strchr() ;
-
-#ifndef   PROTO
-#ifdef    __STDC__
-#define  PROTO(name, args)   name  args
-#else
-#define  PROTO(name, args)   name()
-#endif
-#endif   
-
-#ifdef  __STDC__
-#define  VOID   void
-#else
-#define  VOID   char
-#endif
-
-VOID  *malloc(), *realloc() ;
-void free() ;
-
-
-VOID  *PROTO( RE_malloc, (unsigned) ) ;
-VOID  *PROTO( RE_realloc, (void *,unsigned) ) ;
+PTR  PROTO( RE_malloc, (unsigned) ) ;
+PTR  PROTO( RE_realloc, (void *,unsigned) ) ;
 
 
 /*  finite machine  state types  */

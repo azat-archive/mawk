@@ -11,6 +11,16 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: files.h,v $
+ * Revision 1.3  1996/01/14  17:14:11  mike
+ * flush_all_output()
+ *
+ * Revision 1.2  1994/12/11  22:14:13  mike
+ * remove THINK_C #defines.  Not a political statement, just no indication
+ * that anyone ever used it.
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:13  mike
+ * move source to cvs
+ *
  * Revision 5.2  1992/12/17  02:48:01  mike
  * 1.1.2d changes for DOS
  *
@@ -28,11 +38,14 @@ the GNU General Public License, version 2, 1991.
 #define  PIPE_OUT       (-3)
 #define  F_APPEND       (-2)
 #define  F_TRUNC        (-1)
+#define  IS_OUTPUT(type)  ((type)>=PIPE_OUT)
 
 extern char *shell ; /* for pipes and system() */
 
 PTR  PROTO(file_find, (STRING *, int)) ;
 int  PROTO(file_close, (STRING *)) ;
+int  PROTO(file_flush, (STRING *)) ;
+void PROTO(flush_all_output, (void)) ;
 PTR  PROTO(get_pipe, (char *, int, int *) ) ;
 int  PROTO(wait_for, (int) ) ;
 void  PROTO( close_out_pipes, (void) ) ;

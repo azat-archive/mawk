@@ -70,7 +70,7 @@ set ret3=1
 :type3
 type temp$$
 
-rem  the returns should all be zero or all 1
+rem  the returns should all be zero or all 2
 
 echo *************************************
 echo return1 = %ret1%
@@ -78,17 +78,17 @@ echo return2 = %ret2%
 echo return3 = %ret3%
 
 set exception=0
-if %ret1% == 1 goto :okay1
+if %ret1% == 2 goto :okay1
 if %ret1% == 0 goto :okay1
 echo test1 failed
 set exception=1
 :okay1
-if %ret2% == 1 goto :okay2
+if %ret2% == 2 goto :okay2
 if %ret2% == 0 goto :okay2
 echo test2 failed
 set exception=1
 :okay2
-if %ret3% == 1 goto :okay3
+if %ret3% == 2 goto :okay3
 if %ret3% == 0 goto :okay3
 echo test3 failed
 set exception=1
@@ -107,7 +107,7 @@ set same=0
 if %same% == 1 goto :same123
 echo results are not consistent
 echo return values should all be 0 if ignoring FPEs (e.g. with IEEE754)
-echo or all 1 if trapping FPEs
+echo or all 2 if trapping FPEs
 goto :cleanup
 
 :same123

@@ -12,6 +12,12 @@ the GNU General Public License, version 2, 1991.
 
 
 /*$Log: rexpdb.c,v $
+ * Revision 1.2  1993/07/23  13:21:51  mike
+ * cleanup rexp code
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:28  mike
+ * move source to cvs
+ *
  * Revision 3.2  1991/08/13  09:10:09  brennan
  * VERSION .9994
  *
@@ -39,7 +45,8 @@ static  char *xlat[] = {
 "M_ACCEPT" } ;
 
 void  REmprint(m, f)
-  VOID *m ; FILE *f ;
+  PTR  m ; 
+  FILE *f ;
 { register STATE *p = (STATE *) m ;
   char *end_on_string ;
 

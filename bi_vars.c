@@ -11,6 +11,9 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log: bi_vars.c,v $
+ * Revision 1.1.1.1  1993/07/03  18:58:09  mike
+ * move source to cvs
+ *
  * Revision 5.2  1992/07/10  16:17:10  brennan
  * MsDOS: remove NO_BINMODE macro
  *

@@ -12,6 +12,12 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log: memory.h,v $
+ * Revision 1.1.1.1  1993/07/03  18:58:17  mike
+ * move source to cvs
+ *
+ * Revision 5.2  1993/01/01  21:30:48  mike
+ * split new_STRING() into new_STRING and new_STRING0
+ *
  * Revision 5.1  1991/12/05  07:59:28  brennan
  * 1.1 pre-release
  *
@@ -25,12 +31,9 @@ the GNU General Public License, version 2, 1991.
 
 #include "zmalloc.h"
 
-#define  new_CELL()  (CELL *) zmalloc(sizeof(CELL))
-#define  free_CELL(p)  zfree(p,sizeof(CELL))
 
-#ifndef  SUPPRESS_NEW_STRING_PROTO
-STRING  *PROTO( new_STRING, (char *, ...) ) ;
-#endif
+STRING *PROTO(new_STRING, (char*)) ;
+STRING *PROTO(new_STRING0, (unsigned)) ;
 
 #ifdef   DEBUG
 void  PROTO( DB_free_STRING , (STRING *) ) ;

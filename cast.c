@@ -12,30 +12,47 @@ the GNU General Public License, version 2, 1991.
 
 
 /*   $Log: cast.c,v $
- * Revision 5.3.1.5  1993/05/05  00:11:22  mike
- * patch4: overflow in check_strnum() implies pure string
+ * Revision 1.5  1995/06/18  19:17:45  mike
+ * Create a type Int which on most machines is an int, but on machines
+ * with 16bit ints, i.e., the PC is a long.  This fixes implicit assumption
+ * that int==long.
  *
- * Revision 5.3.1.4  1993/01/22  15:05:19  mike
+ * Revision 1.4  1995/06/06  00:02:02  mike
+ * fix cast in d_to_l()
+ *
+ * Revision 1.3  1993/07/17  13:22:45  mike
+ * indent and general code cleanup
+ *
+ * Revision 1.2	 1993/07/04  12:51:41  mike
+ * start on autoconfig changes
+ *
+ * Revision 5.5	 1993/03/06  18:49:45  mike
+ * rm rt_overflow from check_strnum
+ *
+ * Revision 5.4	 1993/02/13  21:57:20  mike
+ * merge patch3
+ *
+ * Revision 5.3.1.4  1993/01/22	 15:05:19  mike
  * pow2->mpow2 for linux
  *
- * Revision 5.3.1.3  1993/01/22  14:18:33  mike
+ * Revision 5.3.1.3  1993/01/22	 14:18:33  mike
  * const for strtod and ansi picky compilers
  *
- * Revision 5.3.1.2  1993/01/20  12:53:06  mike
+ * Revision 5.3.1.2  1993/01/20	 12:53:06  mike
  * d_to_l()
  *
- * Revision 5.3.1.1  1993/01/15  03:33:37  mike
+ * Revision 5.3.1.1  1993/01/15	 03:33:37  mike
  * patch3: safer double to int conversion
  *
- * Revision 5.3  1992/11/28  23:48:42  mike
+ * Revision 5.3	 1992/11/28  23:48:42  mike
  * For internal conversion numeric->string, when testing
  * if integer, use longs instead of ints so 16 and 32 bit
  * systems behave the same
  *
- * Revision 5.2  1992/08/17  14:19:45  brennan
+ * Revision 5.2	 1992/08/17  14:19:45  brennan
  * patch2: After parsing, only bi_sprintf() uses string_buff.
  *
- * Revision 5.1  1991/12/05  07:55:41  brennan
+ * Revision 5.1	 1991/12/05  07:55:41  brennan
  * 1.1 pre-release
  *
 */
@@ -49,246 +66,276 @@ the GNU General Public License, version 2, 1991.
 #include "scan.h"
 #include "repl.h"
 
-int mpow2[NUM_CELL_TYPES] = {1,2,4,8,16,32,64,128,256,512} ;
+int mpow2[NUM_CELL_TYPES] =
+{1, 2, 4, 8, 16, 32, 64, 128, 256, 512} ;
 
-void cast1_to_d( cp )
-  register CELL *cp ;
+void
+cast1_to_d(cp)
+   register CELL *cp ;
 {
-  switch( cp->type )
-  { case C_NOINIT :  cp->dval = 0.0 ; break ;
+   switch (cp->type)
+   {
+      case C_NOINIT:
+	 cp->dval = 0.0 ;
+	 break ;
 
-    case C_DOUBLE :  return ;
+      case C_DOUBLE:
+	 return ;
 
-    case C_MBSTRN :
-    case C_STRING :  
-          { register STRING *s = (STRING *) cp->ptr  ;
+      case C_MBSTRN:
+      case C_STRING:
+	 {
+	    register STRING *s = (STRING *) cp->ptr ;
 
-#if FPE_TRAPS_ON  /* look for overflow error */
-            errno = 0 ;
-            cp->dval = strtod(s->str,(char **)0) ;
-            if ( errno && cp->dval != 0.0 ) /* ignore underflow */
-                rt_error("overflow converting %s to double", s) ;
+#if FPE_TRAPS_ON		/* look for overflow error */
+	    errno = 0 ;
+	    cp->dval = strtod(s->str, (char **) 0) ;
+	    if (errno && cp->dval != 0.0)	/* ignore underflow */
+	       rt_error("overflow converting %s to double", s) ;
 #else
-            cp->dval = strtod(s->str,(char **)0) ;
+	    cp->dval = strtod(s->str, (char **) 0) ;
 #endif
-            free_STRING(s) ;
-          }
-            break ;
+	    free_STRING(s) ;
+	 }
+	 break ;
 
-    case C_STRNUM :  
-      /* don't need to convert, but do need to free the STRING part */
-            free_STRING( string(cp) ) ;
-            break ;
+      case C_STRNUM:
+	 /* don't need to convert, but do need to free the STRING part */
+	 free_STRING(string(cp)) ;
+	 break ;
 
 
-    default :
-            bozo("cast on bad type") ;
-  }
-  cp->type = C_DOUBLE ;
+      default:
+	 bozo("cast on bad type") ;
+   }
+   cp->type = C_DOUBLE ;
 }
 
-void cast2_to_d( cp )
-  register CELL *cp ;
-{ register STRING *s ;
+void
+cast2_to_d(cp)
+   register CELL *cp ;
+{
+   register STRING *s ;
 
-  switch( cp->type )
-  { case C_NOINIT :  cp->dval = 0.0 ; break ;
+   switch (cp->type)
+   {
+      case C_NOINIT:
+	 cp->dval = 0.0 ;
+	 break ;
 
-    case C_DOUBLE :  goto two ;
-    case C_STRNUM :  
-            free_STRING( string(cp) ) ;
-            break ;
+      case C_DOUBLE:
+	 goto two ;
+      case C_STRNUM:
+	 free_STRING(string(cp)) ;
+	 break ;
 
-    case C_MBSTRN :
-    case C_STRING :  
-            s = (STRING *) cp->ptr ;
+      case C_MBSTRN:
+      case C_STRING:
+	 s = (STRING *) cp->ptr ;
 
-#if FPE_TRAPS_ON  /* look for overflow error */
-            errno = 0 ;
-            cp->dval = strtod(s->str,(char **)0) ;
-            if ( errno && cp->dval != 0.0 ) /* ignore underflow */
-                rt_error("overflow converting %s to double", s) ;
+#if FPE_TRAPS_ON		/* look for overflow error */
+	 errno = 0 ;
+	 cp->dval = strtod(s->str, (char **) 0) ;
+	 if (errno && cp->dval != 0.0)	/* ignore underflow */
+	    rt_error("overflow converting %s to double", s) ;
 #else
-            cp->dval = strtod(s->str,(char **)0) ;
+	 cp->dval = strtod(s->str, (char **) 0) ;
 #endif
-            free_STRING(s) ;
-            break ;
+	 free_STRING(s) ;
+	 break ;
 
-    default :
-            bozo("cast on bad type") ;
-  }
-  cp->type = C_DOUBLE ;
+      default:
+	 bozo("cast on bad type") ;
+   }
+   cp->type = C_DOUBLE ;
 
-two:   cp++ ;
-  switch( cp->type )
-  { case C_NOINIT :  cp->dval = 0.0 ; break ;
+ two:cp++ ;
 
-    case C_DOUBLE :  return ;
-    case C_STRNUM :  
-            free_STRING( string(cp) ) ;
-            break ;
+   switch (cp->type)
+   {
+      case C_NOINIT:
+	 cp->dval = 0.0 ;
+	 break ;
 
-    case C_MBSTRN :
-    case C_STRING :  
-            s = (STRING *) cp->ptr ;
+      case C_DOUBLE:
+	 return ;
+      case C_STRNUM:
+	 free_STRING(string(cp)) ;
+	 break ;
 
-#if FPE_TRAPS_ON  /* look for overflow error */
-            errno = 0 ;
-            cp->dval = strtod(s->str,(char **)0) ;
-            if ( errno && cp->dval != 0.0 ) /* ignore underflow */
-                rt_error("overflow converting %s to double", s) ;
+      case C_MBSTRN:
+      case C_STRING:
+	 s = (STRING *) cp->ptr ;
+
+#if FPE_TRAPS_ON		/* look for overflow error */
+	 errno = 0 ;
+	 cp->dval = strtod(s->str, (char **) 0) ;
+	 if (errno && cp->dval != 0.0)	/* ignore underflow */
+	    rt_error("overflow converting %s to double", s) ;
 #else
-            cp->dval = strtod(s->str,(char **)0) ;
+	 cp->dval = strtod(s->str, (char **) 0) ;
 #endif
-            free_STRING(s) ;
-            break ;
+	 free_STRING(s) ;
+	 break ;
 
-    default :
-            bozo("cast on bad type") ;
-  }
-  cp->type = C_DOUBLE ;
+      default:
+	 bozo("cast on bad type") ;
+   }
+   cp->type = C_DOUBLE ;
 }
 
-void cast1_to_s( cp )
-  register CELL *cp ;
-{ 
-  register long lval ;
-  char xbuff[260] ;
+void
+cast1_to_s(cp)
+   register CELL *cp ;
+{
+   register Int lval ;
+   char xbuff[260] ;
 
-  switch( cp->type )
-  { case C_NOINIT :  
-        null_str.ref_cnt++ ;
-        cp->ptr = (PTR) &null_str ;
-        break ;
+   switch (cp->type)
+   {
+      case C_NOINIT:
+	 null_str.ref_cnt++ ;
+	 cp->ptr = (PTR) & null_str ;
+	 break ;
 
-    case C_DOUBLE  :
-	
-	lval = d_to_l(cp->dval) ;
-	if ( lval == cp->dval )
-	    (void) sprintf(xbuff, INT_FMT, lval) ;
-	else
-            (void) sprintf(xbuff , string(CONVFMT)->str, cp->dval) ;
+      case C_DOUBLE:
 
-        cp->ptr = (PTR) new_STRING(xbuff) ;
-        break ;
+	 lval = d_to_I(cp->dval) ;
+	 if (lval == cp->dval)	sprintf(xbuff, INT_FMT, lval) ;
+	 else  sprintf(xbuff, string(CONVFMT)->str, cp->dval) ;
 
-    case C_STRING :  return ;
+	 cp->ptr = (PTR) new_STRING(xbuff) ;
+	 break ;
 
-    case C_MBSTRN :
-    case C_STRNUM :  break ;
+      case C_STRING:
+	 return ;
 
-    default :  bozo("bad type on cast") ;
-  }
-  cp->type = C_STRING ;
+      case C_MBSTRN:
+      case C_STRNUM:
+	 break ;
+
+      default:
+	 bozo("bad type on cast") ;
+   }
+   cp->type = C_STRING ;
 }
 
-void cast2_to_s( cp )
-  register CELL *cp ;
-{ 
-  register long lval ;
-  char xbuff[260] ;
+void
+cast2_to_s(cp)
+   register CELL *cp ;
+{
+   register Int lval ;
+   char xbuff[260] ;
 
-  switch( cp->type )
-  { case C_NOINIT : 
-        null_str.ref_cnt++ ;
-        cp->ptr = (PTR) &null_str ;
-        break ;
+   switch (cp->type)
+   {
+      case C_NOINIT:
+	 null_str.ref_cnt++ ;
+	 cp->ptr = (PTR) & null_str ;
+	 break ;
 
-    case C_DOUBLE  :
+      case C_DOUBLE:
 
-	lval = d_to_l(cp->dval) ;
-	if ( lval == cp->dval )
-	    (void) sprintf(xbuff, INT_FMT, lval) ;
-	else
-            (void) sprintf(xbuff , string(CONVFMT)->str, cp->dval) ;
+	 lval = d_to_I(cp->dval) ;
+	 if (lval == cp->dval)	sprintf(xbuff, INT_FMT, lval) ;
+	 else  sprintf(xbuff, string(CONVFMT)->str, cp->dval) ;
 
-        cp->ptr = (PTR) new_STRING(xbuff) ;
-        break ;
+	 cp->ptr = (PTR) new_STRING(xbuff) ;
+	 break ;
 
-    case C_STRING :  goto two ;
+      case C_STRING:
+	 goto two ;
 
-    case C_MBSTRN :
-    case C_STRNUM :  break ;
+      case C_MBSTRN:
+      case C_STRNUM:
+	 break ;
 
-    default :  bozo("bad type on cast") ;
-  }
-  cp->type = C_STRING ;
+      default:
+	 bozo("bad type on cast") ;
+   }
+   cp->type = C_STRING ;
 
 two:
-  cp++ ;
+   cp++ ;
 
-  switch( cp->type )
-  { case C_NOINIT :  
-        null_str.ref_cnt++ ; 
-        cp->ptr = (PTR) &null_str ;
-        break ;
+   switch (cp->type)
+   {
+      case C_NOINIT:
+	 null_str.ref_cnt++ ;
+	 cp->ptr = (PTR) & null_str ;
+	 break ;
 
-    case C_DOUBLE  :
+      case C_DOUBLE:
 
-	lval = d_to_l(cp->dval) ;
-	if ( lval == cp->dval )
-	    (void) sprintf(xbuff, INT_FMT, lval) ;
-	else
-            (void) sprintf(xbuff , string(CONVFMT)->str, cp->dval) ;
+	 lval = d_to_I(cp->dval) ;
+	 if (lval == cp->dval)	sprintf(xbuff, INT_FMT, lval) ;
+	 else  sprintf(xbuff, string(CONVFMT)->str, cp->dval) ;
 
-        cp->ptr = (PTR) new_STRING(xbuff) ;
-        break ;
+	 cp->ptr = (PTR) new_STRING(xbuff) ;
+	 break ;
 
-    case C_STRING :  return ;
+      case C_STRING:
+	 return ;
 
-    case C_MBSTRN :
-    case C_STRNUM :  break ;
+      case C_MBSTRN:
+      case C_STRNUM:
+	 break ;
 
-    default :  bozo("bad type on cast") ;
-  }
-  cp->type = C_STRING ;
+      default:
+	 bozo("bad type on cast") ;
+   }
+   cp->type = C_STRING ;
 }
 
-void  cast_to_RE( cp )
-  register CELL *cp ;
-{ register PTR p ;
-
-  if ( cp->type < C_STRING )  cast1_to_s(cp) ;
-
-  p = re_compile( string(cp) ) ;
-  free_STRING( string(cp) ) ;
-  cp->type = C_RE ;
-  cp->ptr = p ;
-
-}
-
-void  cast_for_split(cp)
-  register CELL *cp ;
+void
+cast_to_RE(cp)
+   register CELL *cp ;
 {
-  static char meta[] = "^$.*+?|[]()" ;
-  static char xbuff[] = "\\X" ;
-  int c ;
-  unsigned len ;
-    
-  if ( cp->type < C_STRING )  cast1_to_s(cp) ;
+   register PTR p ;
 
-  if ( (len = string(cp)->len) == 1 )
-  {
-        if ( (c = string(cp)->str[0]) == ' ' )
-        { free_STRING(string(cp)) ;
-          cp->type = C_SPACE ; 
-          return ; 
-        }
-        else
-        if ( strchr(meta, c) )
-        { xbuff[1] = c ;
-          free_STRING(string(cp)) ;
-          cp->ptr = (PTR) new_STRING(xbuff) ;
-        }
-  }
-  else
-  if ( len == 0 ) 
-  { free_STRING(string(cp)) ;
-    cp->type = C_SNULL ; 
-    return ; 
-  }
+   if (cp->type < C_STRING)  cast1_to_s(cp) ;
 
-  cast_to_RE(cp) ;
+   p = re_compile(string(cp)) ;
+   free_STRING(string(cp)) ;
+   cp->type = C_RE ;
+   cp->ptr = p ;
+
+}
+
+void
+cast_for_split(cp)
+   register CELL *cp ;
+{
+   static char meta[] = "^$.*+?|[]()" ;
+   static char xbuff[] = "\\X" ;
+   int c ;
+   unsigned len ;
+
+   if (cp->type < C_STRING)  cast1_to_s(cp) ;
+
+   if ((len = string(cp)->len) == 1)
+   {
+      if ((c = string(cp)->str[0]) == ' ')
+      {
+	 free_STRING(string(cp)) ;
+	 cp->type = C_SPACE ;
+	 return ;
+      }
+      else if (strchr(meta, c))
+      {
+	 xbuff[1] = c ;
+	 free_STRING(string(cp)) ;
+	 cp->ptr = (PTR) new_STRING(xbuff) ;
+      }
+   }
+   else if (len == 0)
+   {
+      free_STRING(string(cp)) ;
+      cp->type = C_SNULL ;
+      return ;
+   }
+
+   cast_to_RE(cp) ;
 }
 
 /* input: cp-> a CELL of type C_MBSTRN (maybe strnum)
@@ -296,154 +343,73 @@ void  cast_for_split(cp)
    which is C_STRING or C_STRNUM
 */
 
-void check_strnum( cp )
-  CELL *cp ;
-{ char *test ;
-  register unsigned char *s , *q ;
+void
+check_strnum(cp)
+   CELL *cp ;
+{
+   char *test ;
+   register unsigned char *s, *q ;
 
-  cp->type = C_STRING ; /* assume not C_STRNUM */
-  s = (unsigned char *) string(cp)->str ;
-  q = s + string(cp)->len ;
-  while ( scan_code[*s] == SC_SPACE )  s++ ;
-  if ( s == q )  return ;
+   cp->type = C_STRING ;	 /* assume not C_STRNUM */
+   s = (unsigned char *) string(cp)->str ;
+   q = s + string(cp)->len ;
+   while (scan_code[*s] == SC_SPACE)  s++ ;
+   if (s == q)	return ;
 
-  while ( scan_code[ q[-1] ] == SC_SPACE )  q-- ;
-  if ( scan_code[ q[-1] ] != SC_DIGIT &&
-       q[-1] != '.' )   return ;
+   while (scan_code[q[-1]] == SC_SPACE)	 q-- ;
+   if (scan_code[q[-1]] != SC_DIGIT &&
+       q[-1] != '.')
+      return ;
 
-  switch ( scan_code[*s] )
-  {
-    case SC_DIGIT :
-    case SC_PLUS  :
-    case SC_MINUS :
-    case SC_DOT   :
+   switch (scan_code[*s])
+   {
+      case SC_DIGIT:
+      case SC_PLUS:
+      case SC_MINUS:
+      case SC_DOT:
 
 #if FPE_TRAPS_ON
-             errno = 0 ;
-             cp->dval  = strtod((char *)s, &test) ;
-	     /* treat overflow as pure string */
-             if ( errno && cp->dval != 0.0 )  return ;
+	 errno = 0 ;
+	 cp->dval = strtod((char *) s, &test) ;
+	 /* make overflow pure string */
+	 if (errno && cp->dval != 0.0)	return ;
 #else
-             cp->dval = strtod((char *)s, &test) ;
+	 cp->dval = strtod((char *) s, &test) ;
 #endif
 
-             if ((char *) q <= test )  cp->type = C_STRNUM ;
-	     /*  <= instead of == , for some buggy strtod
+	 if ((char *) q <= test)  cp->type = C_STRNUM ;
+	 /*  <= instead of == , for some buggy strtod
 		 e.g. Apple Unix */
-  }
+   }
 }
 
 /* cast a CELL to a replacement cell */
 
-void cast_to_REPL( cp )
-  register CELL *cp ;
-{ register STRING *sval ;
+void
+cast_to_REPL(cp)
+   register CELL *cp ;
+{
+   register STRING *sval ;
 
-  if ( cp->type < C_STRING )  cast1_to_s(cp) ;
-  sval = (STRING *) cp->ptr ;
+   if (cp->type < C_STRING)  cast1_to_s(cp) ;
+   sval = (STRING *) cp->ptr ;
 
-  (void) cellcpy(cp, repl_compile(sval)) ;
-  free_STRING(sval) ;
+   cellcpy(cp, repl_compile(sval)) ;
+   free_STRING(sval) ;
 }
 
 
-/* convert a double to long (this is not as simple as a
+/* convert a double to Int (this is not as simple as a
    cast because the results are undefined if it won't fit).
-   Truncate large values to +MAX__LONG or -MAX__LONG
-   Send nans to -MAX__LONG
+   Truncate large values to +Max_Int or -Max_Int
+   Send nans to -Max_Int
 */
 
-long
-d_to_l(d)
-  double d ;
+Int
+d_to_I(d)
+   double d;
 {
-  if ( d >= MAX__LONG )  return MAX__LONG ;
-  if ( d >  -MAX__LONG ) return (int) d ;
-  return -MAX__LONG ;
+   if (d >= Max_Int)	return Max_Int ;
+   if (d > -Max_Int)	return (Int) d ;
+   return -Max_Int ;
 }
-
-#if   HAVE_STRTOD==0
-
-/* don't use this unless you really don't have strtod() because
-   (1) its probably slower than your real strtod()
-   (2) atof() may call the real strtod() 
-*/
-
-#if __STDC__ == 0
-#define const
-#endif
-
-double strtod(s, endptr)
-  const char *s ;
-  char  **endptr ;
-{
-  register unsigned char *p ; 
-  int flag ;
-  double atof() ;
-
-  if ( endptr )
-  {
-    p = (unsigned char*) s ;
-
-    flag = 0 ;
-    while ( *p == ' ' || *p == '\t' ) p++ ;
-    if ( *p == '-' || *p == '+' ) p++ ;
-    while ( scan_code[*p] == SC_DIGIT ) { flag++ ; p++ ; }
-    if ( *p == '.' )
-    {
-      p++ ;
-      while ( scan_code[*p] == SC_DIGIT ) { flag++ ; p++ ; }
-    }
-    /* done with number part */
-    if ( flag == 0 )
-    { /* no number part */
-      *endptr = s ; return 0.0 ; 
-    }
-    else *endptr = (char *) p ;
-
-    /* now look for exponent */
-    if ( *p == 'e' || *p == 'E' )
-    {
-      flag = 0 ;
-      p++ ;
-      if ( *p == '-' || *p == '+' ) p++ ;
-      while ( scan_code[*p] == SC_DIGIT ) { flag++ ; p++ ; }
-      if ( flag ) *endptr = (char *) p ;
-    }
-  }
-  return atof(s) ;
-}
-#endif  /* HAVE_STRTOD==0 */
-
-#if   HAVE_FMOD==0
-
-#if SW_FP_CHECK   /* this is V7 and XNX23A specific */
-
-double  fmod(x, y)
-  double x, y ;
-{ double modf() ;
-  double dtmp, ipart ;
-
-  clrerr();
-  dtmp = x / y;
-  fpcheck();
-  (void) modf(dtmp, &ipart) ;
-  return x - ipart*y ;
-}
-
-#else
-
-double  fmod(x, y)
-  double x, y ;
-{ double modf() ;
-  double ipart ;
-
-  (void) modf(x/y, &ipart) ;
-  return x - ipart*y ;
-}
-
-#endif
-#endif  
-
-
-

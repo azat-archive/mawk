@@ -12,6 +12,12 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log: bi_funct.h,v $
+ * Revision 1.2  1994/12/11  22:10:15  mike
+ * fflush
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:08  mike
+ * move source to cvs
+ *
  * Revision 5.1  1991/12/05  07:59:03  brennan
  * 1.1 pre-release
  *
@@ -55,6 +61,7 @@ CELL *PROTO( bi_rand, (CELL *) ) ;
 /* other builtins */
 CELL *PROTO( bi_close, (CELL *) ) ;
 CELL *PROTO( bi_system, (CELL *) ) ;
+CELL *PROTO( bi_fflush, (CELL *) ) ;
 
 #endif  /* BI_FUNCT_H  */
 

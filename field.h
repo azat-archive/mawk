@@ -11,6 +11,12 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log: field.h,v $
+ * Revision 1.2  1995/06/18  19:42:16  mike
+ * Remove some redundant declarations and add some prototypes
+ *
+ * Revision 1.1.1.1  1993/07/03  18:58:12  mike
+ * move source to cvs
+ *
  * Revision 5.2  1992/01/06  08:10:24  brennan
  * set_binmode() proto for MSDOS
  *
@@ -28,6 +34,8 @@ the GNU General Public License, version 2, 1991.
 void  PROTO( set_field0, (char *, unsigned) ) ;
 void  PROTO( split_field0, (void) ) ;
 int   PROTO( space_split, (char *, unsigned) ) ;
+int   PROTO( re_split, (char *, PTR) ) ;
+int   PROTO( null_split, (char *)) ;
 void  PROTO( field_assign, (CELL*, CELL *) ) ;
 char *PROTO( is_string_split, (PTR , unsigned *) ) ;
 void  PROTO( slow_cell_assign, (CELL*, CELL*)) ;

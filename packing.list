@@ -1,88 +1,94 @@
 
-#$Id: packing.list,v 1.32 1993/02/06 02:12:51 mike Exp $
+#$Id: packing.list,v 1.13 1996/01/18 11:51:37 mike Exp $
 
 ################################################
-# These files form the mawk distribution 1.1.2d
+# These files form the mawk distribution 1.2
 #
 # Mawk is an implementation of the AWK Programming Language as
 # defined and described in Aho, Kernighan and Weinberger, The
 # Awk Programming Language, Addison-Wesley, 1988 and extended
-# by Posix 1003.2 D11.2
+# by Posix 1003.2 D11.3
 #
 ################################################
 packing.list		this file
-README			description of mawk 1.1
-NEW			changes from 1.0 to 1.1
-PATCHES			changes from 1.1 to 1.1.2
+README			description of mawk 1.2beta
 INSTALL			installation instructions
 COPYING			GNU General Public License, version 2	
 ACKNOWLEDGMENT
-UCONFIG
-build_mawk              shell script for making from known configuration
+CHANGES
 Makefile.in		makefile template
-Makefile.v7
-modbison.awk  		removes bison's use of alloca()
-V7_notes		how to install mawk on V7 unix
+configure		Configuration script
+config.user		user settable configuration parameters
+configure.in		autoconf script
+mawk.ac.m4		ditto
+#################################
+# directory: config-user    hints on CFLAGS and odd configurations
+config-user/.config.user    readonly copy of template
+config-user/apollo
+config-user/convex
+config-user/mips
+config-user/sgi
+config-user/ultrix-mips
 ######################
 array.c			source files
 bi_funct.c
-bi_funct.h
 bi_vars.c
-bi_vars.h
 cast.c
 code.c
-code.h
 da.c
 error.c
 execute.c
 fcall.c
 field.c
-field.h
 files.c
-files.h
 fin.c
-fin.h
 hash.c
 init.c
-init.h
 jmp.c
-jmp.h
 kw.c
 main.c
 makescan.c
 matherr.c
-mawk.h
 memory.c
-memory.h
-parse.c
-parse.h
-parse.y
-parse2.xc
-patchlev.h
+missing.c
 print.c
 re_cmpl.c
+scan.c
+scancode.c
+split.c
+version.c
+zmalloc.c
+bi_funct.h
+bi_vars.h
+code.h
+field.h
+files.h
+fin.h
+init.h
+jmp.h
+mawk.h
+memory.h
+nstd.h
+patchlev.h
 regexp.h
 repl.h
-scan.c
 scan.h
-scancode.c
 sizes.h
-split.c
 symtype.h
 types.h
 vargs.h
-version.c
-zmalloc.c
 zmalloc.h
+parse.y
+parse.c
+parse.h
+fpe_check.c
 ########################
 # directory:  man
 man/mawk.1		troff source for unix style man pages
 man/mawk.doc		ascii man pages
 ########################
 # directory:  rexp
-rexp/Makefile		makefiles for regexp.a
-rexp/Makefile.v7
-rexp/Makefile.MSC
+rexp/Makefile		make rexp*.o files
 rexp/rexp.c		source for regular matching library
 rexp/rexp.h
 rexp/rexp0.c
@@ -90,36 +96,6 @@ rexp/rexp1.c
 rexp/rexp2.c
 rexp/rexp3.c
 rexp/rexpdb.c
-#########################
-# directory:  config
-config/generic.h
-config/Idefault.h
-config/template.h
-config/ultrix_vax.h
-config/ultrix42mips.h
-config/bsd43_vax.h
-config/sun_os40.h
-config/sun_os41.h
-config/tcc_dos.h
-config/V7.h
-config/xenix_r2.h
-config/sysV_ieeefp.h
-config/sysV.h
-config/sysVr4i386.h
-config/msc_dos.h
-config/think_c.h
-config/dynix.h
-config/atarist.h
-config/mips.h
-config/next.h
-config/sgi.h
-config/apollo.h
-config/convex.h
-config/aix.h
-config/coherent.h
-config/linux.h
-config/386bsd.h
-config/ztc_dos.h
 #######################
 # directory:  test      testing and benchmarking directory
 test/mawktest           scripts to test mawk compiled OK
@@ -145,6 +121,7 @@ test/wc-awk.out
 test/wfrq-awk.out
 ######################
 # directory:  examples       useful awk programs
+examples/hical			calendar program by Bob Stockler
 examples/decl.awk
 examples/deps.awk
 examples/gdecl.awk
@@ -156,17 +133,17 @@ examples/ct_length.awk		change length to length()
 ######################
 # directory  msdos
 msdos/NOTES
+msdos/INSTALL			installation instructions for DOS
 msdos/dosexec.c			system() and pipes() for DOS
-msdos/xdosexec.asm		execute programs small model	
-msdos/xdosexec.see		hex dump of xdosexec.obj
-msdos/see2obj.c			recovers xdosexec.obj 
 msdos/argvpoly.c		for polyshell
 msdos/argvmks.c			for MKS Korn Shell
-msdos/Makefile.tcc		for [TB]CC and Borland make
-msdos/Makefile.MSC		nmake and MSC 6.0A
+msdos/makefile.tcc		for [TB]CC and Borland make
+msdos/makefile.msc		nmake and MSC 6.0A
 msdos/makefile.ztc	        
 msdos/mawkmsc.lnk
-msdos/bmawkmsc.lnk
+msdos/tcc.h
+msdos/msc.h
+msdos/ztc.h
 #####################
 # directory msdos/examples	awk programs for msdos
 msdos/examples/add_cr.awk
@@ -179,9 +156,12 @@ msdos/examples/texttest.awk
 msdos/examples/winexe.awk
 msdos/examples/winobj.awk
 #####################
-# directory macintosh
-macintosh/NOTES
-macintosh/THINK_C.PROJ
-#######################
 # directory atarist
 atarist/README.ST
+####################
+# directory v7
+v7/Makefile.v7
+v7/README
+v7/V7.h
+v7/V7_notes
+v7/config.h
