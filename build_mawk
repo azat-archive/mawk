@@ -10,6 +10,7 @@
 #            build_mawk MF -- to get a generic Makefile
 #
 
+#$Id: build_mawk,v 1.15 1992/12/17 00:34:00 mike Exp $
 
 progname=`basename $0`
 
@@ -124,6 +125,9 @@ convex)
 	config=convex.h
 	cflags='-O2 -std' ;;
 
+coherent)
+        config=coherent.h
+        cflags='-O -f' ;;
 
 MF)  ;;
 
@@ -164,12 +168,16 @@ if [ -f parse.c ]  # should be true
    then
    echo touching parse.c  ; touch parse.c
 fi
-rm -f  config.h
 
 
 [ $arg1 = MF ]  &&   exit 0
 
 
+if [ -f config.h ]
+  then
+     echo moving config.h to config.h.old
+     mv  config.h  config.h.old
+fi
 echo linking config/$config to config.h
 ln   config/$config  config.h
 

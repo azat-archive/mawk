@@ -12,6 +12,9 @@ the GNU General Public License, version 2, 1991.
 
 
 /* $Log: generic.h,v $
+ * Revision 4.5  1992/11/22  18:30:29  mike
+ * strerror()
+ *
  * Revision 4.4  1992/03/03  16:40:54  brennan
  * remove HAVE_PRINTF_HD
  *
@@ -53,6 +56,7 @@ generic conditions:
    have matherr()
    have strtod()
    have fmod()
+   do not have strerror()
 
 
    divison by zero, overflow and library domain errors do not
@@ -69,15 +73,6 @@ generic conditions:
    Your OS is some flavor of Unix
 /*
 
-/* tested and works on:
-
-SunOS4.1  (sun 4.0.3 has a bug in strtod(), use sun_os40.h)
-
-Ultrix4.1  on a MIPS
-Ultrix4.2  on a MIPS
-SysV3.02beta on a Stardent 3000
-
-*/
 
 #ifndef  CONFIG_H
 #define  CONFIG_H	1

@@ -14,10 +14,11 @@ Ports to new systems:
 	Ed Ferguson		MIPS M2000 C2.20 OS4.52
 	Jwahar R. Bammi		Atari ST
 	Berry Kercheval		SGI IRIX 4.0.1
-	Andy Mason		Next 2.1
+	Andy Newman		Next 2.1
 	Mike Carlton		Next 2.1
 	Elliot Jaffe		AIX 3.1
 	Jeremy Martin		Convex 9.1
+	Scott Hunziker		Coherent 4.0
 
 The DOS version is a lot better thanks to suggestions and testing
 from Ed Ferguson, Jack Fitts, Nadav Horesh, Michael Golan and

@@ -1,6 +1,8 @@
 
+#$Id: packing.list,v 1.29 1992/11/26 20:13:58 mike Exp $
+
 ################################################
-# These files form the mawk distribution 1.1.2
+# These files form the mawk distribution 1.1.2c
 #
 # Mawk is an implementation of the AWK Programming Language as
 # defined and described in Aho, Kernighan and Weinberger, The
@@ -68,6 +70,7 @@ sizes.h
 split.c
 symtype.h
 types.h
+vargs.h
 version.c
 zmalloc.c
 zmalloc.h
@@ -113,6 +116,7 @@ config/sgi.h
 config/apollo.h
 config/convex.h
 config/aix.h
+config/coherent.h
 #######################
 # directory:  test      testing and benchmarking directory
 test/mawktest           scripts to test mawk compiled OK
