@@ -10,11 +10,6 @@ Mawk is distributed without warranty under the terms of
 the GNU General Public License, version 2, 1991.
 ********************************************/
 
-/* $Log: parse2.xc,v $
-Revision 5.1  1991/12/05  07:52:38  brennan
-1.1 pre-release
-
-*/
 
 /* If using Berkeley yacc, we can put the parser table 
    memory to the zmalloc pool.  This is kind of ugly and

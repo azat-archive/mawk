@@ -11,6 +11,9 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /* $Log: parse.y,v $
+ * Revision 5.4.1.1  1993/05/05  00:08:26  mike
+ * patch4: forgot to set $$ in LENGTH alone production
+ *
  * Revision 5.4  1992/08/08  17:17:20  brennan
  * patch 2: improved timing of error recovery in
  * bungled function definitions. Fixes a core dump
@@ -420,7 +423,7 @@ builtin :
           code2(_BUILTIN , p->fp) ;
         }
 	| LENGTH   /* this is an irritation */
-	  {
+	  { $$ = code_ptr ;
 	    code1(_PUSHINT) ; code1(0) ;
 	    code2(_BUILTIN, $1->fp) ;
 	  }

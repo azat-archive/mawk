@@ -11,6 +11,9 @@ the GNU General Public License, version 2, 1991.
 ********************************************/
 
 /*$Log: version.c,v $
+ * Revision 5.6.1.3  1993/05/05  00:02:18  mike
+ * patch4
+ *
  * Revision 5.6.1.2  1993/01/20  12:53:13  mike
  * d_to_l()
  *
@@ -41,7 +44,7 @@ the GNU General Public License, version 2, 1991.
 #include "patchlev.h"
 
 static char rcsid[] =
-"@(#) $Id: version.c,v 5.6.1.2 1993/01/20 12:53:13 mike Exp $" ;
+"@(#) $Id: version.c,v 5.6.1.3 1993/05/05 00:02:18 mike Exp $" ;
 
 #define  VERSION_STRING  \
   "mawk 1.1%s%s %s, Copyright (C) Michael D. Brennan\n\n"

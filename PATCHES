@@ -1,3 +1,13 @@
+patch4:  mawk1.1.3 -> mawk1.1.4   May 93
+
+fixed 2 bugs:
+1)  length alone without () or ($0) sometimes core dumps due
+    to stupid oversight in parse.y
+
+2)  numeric looking data fields that fpe overflow cause program
+    to halt -- should be treated as strings instead
+
+
 patch3:  mawk1.1.2 -> mawk1.1.3   Jan 93
 
 1) New configurations:

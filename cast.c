@@ -12,6 +12,9 @@ the GNU General Public License, version 2, 1991.
 
 
 /*   $Log: cast.c,v $
+ * Revision 5.3.1.5  1993/05/05  00:11:22  mike
+ * patch4: overflow in check_strnum() implies pure string
+ *
  * Revision 5.3.1.4  1993/01/22  15:05:19  mike
  * pow2->mpow2 for linux
  *
@@ -318,9 +321,8 @@ void check_strnum( cp )
 #if FPE_TRAPS_ON
              errno = 0 ;
              cp->dval  = strtod((char *)s, &test) ;
-             if ( errno && cp->dval != 0.0 )
-                rt_error(
-                "overflow converting %s to double" , s) ;
+	     /* treat overflow as pure string */
+             if ( errno && cp->dval != 0.0 )  return ;
 #else
              cp->dval = strtod((char *)s, &test) ;
 #endif
