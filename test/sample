@@ -1,0 +1,13 @@
+dump  cat.awk  ../TB  mawk gawk awk
+out   wc.awk ../TB  mawk gawk awk
+dump  fields.awk ../TB mawk gawk awk
+out  reg0.awk ../TB mawk gawk awk
+out  reg1.awk ../TB mawk gawk awk
+out  reg2.awk ../TB mawk gawk awk
+out  words0.awk  ../TB  mawk gawk
+out  words1.awk  ../TB  mawk
+dump newton.awk  /dev/null  mawk  gawk
+dump concat.awk  ../TB  mawk gawk awk
+dump primes.awk  5000   mawk gawk
+dump squeeze.awk  ../parse.y mawk gawk
+dump qsort.awk  ../parse.y  mawk  gawk

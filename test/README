@@ -1,0 +1,23 @@
+
+Some benchmarks of Mawk and other (new) awks are in the file
+benchmarks.
+
+Most of the programs are one liners, but a few are interesting
+and duplicated in examples directory.
+
+To run these tests or others yourself, use the
+shell script test.sh
+
+----------------------------------------------------
+
+One area mawk needs to improve is array[expr] access when
+expr is numeric (see primes and qsort).
+Mawk always converts numeric expressions to string for
+array access which leads to a lot of redundant conversions.
+Better array access will be added for release 1.0.
+
+-------------------------------------------
+
+run wfrq0.awk or words0.awk to see how much RS as a 
+regular expression can speed up some programs
+

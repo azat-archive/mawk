@@ -1,0 +1,21 @@
+
+
+to build mawk:
+
+make sure  there is an appropriate description of
+your system in machine.h
+
+set CFLAGS in the Makefile to pick the appropriate blob
+in machine.h
+
+run make
+
+
+
+PS:
+I expected to have bcopy() <-> memcpy()
+hassles on 4.3BSD, but didn't
+Is this right? or did someone add memcpy(), strchr() etc
+   to that machine?
+   If 4.3BSD in machine.h is wrong, let me know at
+   brennan@bcsaic.boeing.com

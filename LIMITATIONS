@@ -1,0 +1,38 @@
+
+
+Mawk is an implementation of the AWK Programming Language
+as defined in Aho, Kernighan and Weinberger, The AWK 
+Programming Language, Addison-Wesley, 1988.
+
+The source code is original work, in the sense that its
+development relied only on the specification of the AWK
+language in the book above.  Most of the algorithms and
+data structures used in this code are not original --
+but based on knowledge acquired from numerous sources.
+Originality is claimed only for the aggregate work.  Any
+ideas or techniques in this code can be freely copied and
+used in other work.  
+
+The source code may be modified provided the copyright
+notices remain intact, and modifications are unambiguously
+distinct from the original.  I want to retain credit for my
+work and do not want credit for yours.
+
+Redistribution in any form is permitted provided the built-in
+variable VERSION is retained, and its initial value only
+modified by appending extra lines.
+
+    For example, if you modify a mawk with VERSION
+
+	mawk x.xx Mon Year, Copyright (C) Michael D. Brennan
+
+    then add an extra line to VERSION without modifying the
+    first line.
+
+	mawk x.xx Mon Year, Copyright (C) Michael D. Brennan
+	mod y.yy  Mon Year, your name
+
+
+Michael D. Brennan
+16 Apr 1991
+

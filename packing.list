@@ -1,0 +1,110 @@
+
+################################################
+# These files form the mawk distribution
+#
+# Mawk is an implementation of the AWK Programming Language as
+# defined and described in Aho, Kernighan and Weinberger, The
+# Awk Programming Language, Addison-Wesley, 1988.
+#
+################################################
+# Source code written by Michael D. Brennan
+# Copyright (C) 1991 , Michael D. Brennan
+################################################
+packing.list		this file
+README			how to get started
+LIMITATIONS		restrictions on use
+Makefile		mawk makefile
+mawk.manual		mock manual
+######################
+array.c			source files
+bi_funct.c
+bi_funct.h
+bi_vars.c
+bi_vars.h
+cast.c
+code.c
+code.h
+da.c
+error.c
+execute.c
+fcall.c
+field.c
+field.h
+files.c
+files.h
+fin.c
+fin.h
+hash.c
+init.c
+init.h
+jmp.c
+jmp.h
+kw.c
+machine.h
+main.c
+makescan.c
+matherr.c
+mawk.h
+memory.c
+memory.h
+parse.y
+print.c
+re_cmpl.c
+regexp.h
+repl.h
+scan.c
+scan.h
+scancode.c
+sizes.h
+split.c
+symtype.h
+types.h
+zmalloc.c
+zmalloc.h
+########################
+# directory:  rexp
+rexp/Makefile		makefile for regexp.a
+rexp/rexp.c		source for regular matching library
+rexp/rexp.h
+rexp/rexp0.c
+rexp/rexp1.c
+rexp/rexp2.c
+rexp/rexp3.c
+rexp/rexpdb.c
+#######################
+# directory:  test      benchmarking directory
+test/README
+test/benchmarks
+test/cat.awk
+test/concat.awk
+test/fields.awk
+test/loops.awk
+test/newton.awk
+test/primes.awk
+test/qsort.awk
+test/reg0.awk
+test/reg1.awk
+test/reg2.awk
+test/sample			sample input file for test.sh
+test/squeeze.awk
+test/test.sh
+test/wc.awk
+test/wfrq.awk
+test/wfrq0.awk
+test/words.awk
+test/words0.awk
+######################
+# directory:  examples       useful awk programs
+examples/decl.awk
+examples/deps.awk
+examples/gdecl.awk
+examples/nocomment.awk
+######################
+# directory  msdos
+msdos/INSTALL
+msdos/makefile
+msdos/mklib.bat
+msdos/rand48.asm
+msdos/rand48.h
+msdos/rand48_0.c
+msdos/reargv.c
