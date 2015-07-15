@@ -34,6 +34,7 @@ FILE *fp ;   /* NULL unless interactive */
 char *buff ;
 char *buffp ;
 unsigned nbuffs ; /* sizeof *buff in BUFFSZs */
+unsigned size ; /* cached strlen(buffp), since file could contain NUL byte */
 int  flags ;
 }  FIN ;
 

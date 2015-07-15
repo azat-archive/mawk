@@ -81,6 +81,8 @@ the GNU General Public License, version 2, 1991.
 #include <fcntl.h>
 #endif
 
+#include <assert.h>
+
 /* This file handles input files.  Opening, closing,
    buffering and (most important) splitting files into
    records, FINgets().
@@ -107,6 +109,7 @@ FINdopen(fd, main_flag)
    fin->buffp = fin->buff = (char *) zmalloc(BUFFSZ + 1) ;
    fin->nbuffs = 1 ;
    fin->buff[0] = 0 ;
+   fin->size = 0 ;
 
    if (isatty(fd) && rs_shadow.type == SEP_CHAR && rs_shadow.c == '\n'
        || interactive_flag && fd == 0 )
@@ -233,6 +236,7 @@ restart :
 
 	    *p = 0 ; *len_p = p - fin->buff ;
 	    fin->buffp = p ;
+	    fin->size += strlen(fin->buff) ;
 	    return fin->buff ;
 	 }
       }
@@ -250,6 +254,7 @@ restart :
 	 {
 	    fin->flags |= EOF_FLAG ;
 	 }
+	 fin->size += r ;
 
 	 p = fin->buffp = fin->buff ;
 
@@ -296,16 +301,19 @@ retry:
 
    if (q)
    {
+      unsigned l;
       /* the easy and normal case */
-      *q = 0 ;	*len_p = q - p ;
+      *q = 0 ;	l = q - p ; *len_p = l ; l += match_len ;
       fin->buffp = q + match_len ;
+      assert(fin->size >= l) ;
+      fin->size -= l ;
       return p ;
    }
 
    if (fin->flags & EOF_FLAG)
    {
       /* last line without a record terminator */
-      *len_p = r = strlen(p) ; fin->buffp = p+r ;
+      *len_p = r = fin->size ; fin->buffp = p+r ; fin->size = 0 ;
 
       if (rs_shadow.type == SEP_MLR && fin->buffp[-1] == '\n'
 	  && r != 0)
@@ -325,12 +333,17 @@ retry:
    {
       /* move a partial line to front of buffer and try again */
       unsigned rr ;
+      unsigned l = p - fin->buffp ;
+      r = fin->size - l ;
+      assert(fin->size >= l) ;
+      fin->size -= l ;
 
-      p = (char *) memmove(fin->buff, p, r = strlen(p)) ;
+      p = (char *) memmove(fin->buff, p, r) ;
       q = p+r ;	 rr = fin->nbuffs*BUFFSZ - r ;
 
       if ((r = fillbuff(fin->fd, q, rr)) < rr)
 	 fin->flags |= EOF_FLAG ;
+      fin->size += r ;
    }
    goto retry ;
 }
@@ -357,11 +370,12 @@ enlarge_fin_buffer(fin)
       fin->buff = (char *) zrealloc(fin->buff, oldsize, oldsize + BUFFSZ) ;
    fin->nbuffs++ ;
 
-   r = strlen(fin->buff) ;
+   r = fin->size ;
    avail = fin->nbuffs*BUFFSZ - r ;
 
    r = fillbuff(fin->fd, fin->buff + r, avail) ;
    if (r < avail)  fin->flags |= EOF_FLAG ;
+   fin->size += r;
 
    return fin->buff ;
 }
@@ -515,8 +529,8 @@ next_main(open_flag)
       /* this is how we mark EOF on main_fin  */
       static char dead_buff = 0 ;
       static FIN dead_main =
-      {0, (FILE *) 0, &dead_buff, &dead_buff,
-       1, EOF_FLAG} ;
+      { .buff = &dead_buff, .buffp = &dead_buff,
+       .nbuffs = 1, .flags = EOF_FLAG} ;
 
       return main_fin = &dead_main ;
       /* since MAIN_FLAG is not set, FINgets won't call next_main() */
