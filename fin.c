@@ -341,6 +341,7 @@ enlarge_fin_buffer(fin)
 {
    unsigned r ;
    unsigned oldsize = fin->nbuffs * BUFFSZ + 1 ;
+   unsigned avail;
 
 #ifdef  MSDOS
    /* I'm not sure this can really happen:
@@ -356,8 +357,11 @@ enlarge_fin_buffer(fin)
       fin->buff = (char *) zrealloc(fin->buff, oldsize, oldsize + BUFFSZ) ;
    fin->nbuffs++ ;
 
-   r = fillbuff(fin->fd, fin->buff + (oldsize - 1), BUFFSZ) ;
-   if (r < BUFFSZ)  fin->flags |= EOF_FLAG ;
+   r = strlen(fin->buff) ;
+   avail = fin->nbuffs*BUFFSZ - r ;
+
+   r = fillbuff(fin->fd, fin->buff + r, avail) ;
+   if (r < avail)  fin->flags |= EOF_FLAG ;
 
    return fin->buff ;
 }
