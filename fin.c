@@ -326,7 +326,7 @@ retry:
       /* move a partial line to front of buffer and try again */
       unsigned rr ;
 
-      p = (char *) memcpy(fin->buff, p, r = strlen(p)) ;
+      p = (char *) memmove(fin->buff, p, r = strlen(p)) ;
       q = p+r ;	 rr = fin->nbuffs*BUFFSZ - r ;
 
       if ((r = fillbuff(fin->fd, q, rr)) < rr)
